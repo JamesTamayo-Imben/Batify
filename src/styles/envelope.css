@@ -1,0 +1,76 @@
+/* ---------------------------------------------------------------------------
+   3D envelope. All sizes are in --u (1% of envelope width) so it scales cleanly.
+   Stacking is flat (z-index) inside a tilted rig; only the flap is truly 3D.
+   Steps (cumulative classes): s1 seal cracks, s2 flap opens, s3 letter slides up,
+   s4 letter rises toward the viewer.
+   --------------------------------------------------------------------------- */
+.env { --u: calc(var(--env-w, min(84vw, 440px)) / 100); position: relative; width: var(--env-w, min(84vw, 440px)); height: calc(var(--u) * 66); margin-inline: auto; perspective: calc(var(--u) * 300); perspective-origin: 50% 30%; }
+.env-bob { position: absolute; inset: 0; perspective: calc(var(--u) * 300); animation: env-bob 6s ease-in-out infinite; }
+.env.is-still .env-bob { animation: none; }
+.env-rig { position: absolute; inset: 0; perspective: calc(var(--u) * 260); transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .35s cubic-bezier(.2,.7,.2,1); }
+@keyframes env-bob { 0%,100% { transform: translateY(0) rotate(-.6deg); } 50% { transform: translateY(calc(var(--u) * -2)) rotate(.6deg); } }
+
+.env-shadow { position: absolute; left: 4%; right: 4%; bottom: calc(var(--u) * -6); height: calc(var(--u) * 8); background: radial-gradient(ellipse at center, rgb(var(--ink) / .38), transparent 68%); filter: blur(5px); transition: transform .9s cubic-bezier(.3,.8,.3,1), opacity .9s; }
+.env.s3 .env-shadow { transform: scale(1.04); }
+.env.s4 .env-shadow { transform: scale(1.2); opacity: .55; }
+
+.env-back { position: absolute; inset: 0; z-index: 1; background: var(--env-back); border-radius: calc(var(--u) * 1.4); box-shadow: inset 0 calc(var(--u) * -1) 0 rgb(var(--ink) / .08); }
+
+.env-front { position: absolute; inset: 0; z-index: 4; pointer-events: none; border-radius: calc(var(--u) * 1.4); overflow: hidden; }
+.env-front i { position: absolute; inset: 0; display: block; }
+.env-front .l { clip-path: polygon(0 0, 50% 54.5%, 0 100%); background: var(--env-side); }
+.env-front .r { clip-path: polygon(100% 0, 50% 54.5%, 100% 100%); background: var(--env-side); filter: brightness(.97); }
+.env-front .b { clip-path: polygon(0 100%, 50% 54.5%, 100% 100%); background: var(--env-bottom); }
+.env-front .edge { clip-path: polygon(0 100%, 50% 54.5%, 100% 100%, 100% 99.2%, 50% 53.7%, 0 99.2%); background: rgb(var(--ink) / .12); }
+
+.env-flap { position: absolute; left: 0; right: 0; top: 0; height: calc(var(--u) * 36.3); transform-origin: 50% 0; transform-style: preserve-3d; z-index: 5;
+  transition: transform .85s cubic-bezier(.45,.1,.2,1), z-index 0s linear .42s; }
+.env.s2 .env-flap { transform: rotateX(180deg); z-index: 1; }
+.env-flap .face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.env-flap .out { background: var(--env-flap); }
+.env-flap .out::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgb(255 255 255 / .35), transparent 60%); }
+.env-flap .in { transform: rotateY(180deg); background-color: var(--env-liner);
+  background-image: linear-gradient(135deg, rgb(255 255 255 / .16) 25%, transparent 25%), linear-gradient(225deg, rgb(255 255 255 / .16) 25%, transparent 25%);
+  background-size: calc(var(--u) * 6) calc(var(--u) * 6); }
+.env-flap .in::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgb(var(--ink) / .35), transparent 70%); }
+
+.env-seal { position: absolute; backface-visibility: hidden; -webkit-backface-visibility: hidden; z-index: 3; left: 50%; top: 100%; width: calc(var(--u) * 17); aspect-ratio: 1; transform: translate(-50%, -64%); }
+.env-seal .half { position: absolute; inset: 0; transition: transform .5s cubic-bezier(.3,1.4,.5,1), opacity .5s; }
+.env-seal .half > .disc { position: absolute; inset: 0; border-radius: 50% 46% 52% 48% / 48% 52% 46% 50%; color: #fff; display: grid; place-items: center;
+  font: 800 calc(var(--u) * 7.5)/1 'Figtree Variable', system-ui, sans-serif;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--env-seal) 70%, white), var(--env-seal) 45%, var(--env-seal-deep) 100%);
+  box-shadow: 0 calc(var(--u) * .8) calc(var(--u) * 1.6) rgb(var(--ink) / .35), inset 0 0 0 calc(var(--u) * 1.2) rgb(255 255 255 / .1); }
+.env-seal .half > .disc::before { content: ''; position: absolute; inset: 15%; border-radius: 50%; border: calc(var(--u) * .5) solid rgb(255 255 255 / .35); }
+.env-seal .hl { clip-path: polygon(0 0, 52% 0, 46% 22%, 55% 40%, 46% 62%, 54% 80%, 48% 100%, 0 100%); }
+.env-seal .hr { clip-path: polygon(52% 0, 100% 0, 100% 100%, 48% 100%, 54% 80%, 46% 62%, 55% 40%, 46% 22%); }
+.env.s1 .env-seal .hl { transform: translate(-16%, 8%) rotate(-14deg); }
+.env.s1 .env-seal .hr { transform: translate(16%, 5%) rotate(11deg); }
+.env:not(.s1) .env-seal.is-pulsing::before { content: ''; position: absolute; inset: -14%; border-radius: 50%; border: 2px solid rgb(var(--env-ring, 255 255 255) / .9); animation: seal-ping 1.8s ease-out infinite; }
+@keyframes seal-ping { 0% { transform: scale(.85); opacity: .9; } 100% { transform: scale(1.45); opacity: 0; } }
+
+.env-letter { position: absolute; left: calc(var(--u) * 5); right: calc(var(--u) * 5); bottom: calc(var(--u) * 4); height: calc(var(--u) * 58); z-index: 2; transform-origin: 50% 100%;
+  transition: transform .95s cubic-bezier(.3,.8,.25,1), z-index 0s linear .45s; }
+.env.s3 .env-letter { transform: translateY(calc(var(--u) * -23)); }
+.env.s4 .env-letter { z-index: 6; transform: translateY(calc(var(--u) * -50)) scale(1.22); }
+.env-paper { position: absolute; inset: 0; background: #fff; border-radius: calc(var(--u) * .8); box-shadow: 0 calc(var(--u) * .4) calc(var(--u) * 1.6) rgb(var(--ink) / .22), inset 0 0 0 1px rgb(var(--ink) / .08); padding: calc(var(--u) * 4.5) calc(var(--u) * 5); overflow: hidden; color: rgb(var(--ink)); }
+.env-paper .t { font: 800 calc(var(--u) * 6.4)/1.02 'Figtree Variable', system-ui, sans-serif; letter-spacing: -.02em; }
+.env-paper .s { margin-top: calc(var(--u) * 2); font: 500 italic calc(var(--u) * 3.7)/1.3 'Newsreader Variable', Georgia, serif; color: rgb(var(--muted)); }
+.env-paper .lines { margin-top: calc(var(--u) * 4); height: calc(var(--u) * 14); background: repeating-linear-gradient(180deg, transparent 0 calc(var(--u) * 3.2), rgb(var(--ink) / .14) calc(var(--u) * 3.2) calc(var(--u) * 3.5)); }
+.env-paper .body { margin-top: calc(var(--u) * 3); font: 400 calc(var(--u) * 4.1)/1.5 'Newsreader Variable', Georgia, serif; }
+
+.env-hit { position: absolute; inset: calc(var(--u) * -4) calc(var(--u) * -4) calc(var(--u) * -8); z-index: 20; background: transparent; border: 0; cursor: pointer; border-radius: calc(var(--u) * 4); }
+.env-hit:focus-visible { outline: 3px solid rgb(var(--accent)); outline-offset: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .env-bob { animation: none; }
+  .env-seal.is-pulsing::before { animation: none !important; }
+}
+
+/* ---------------------------------------------------------------------------
+   Ceremony overlay on the public page
+   --------------------------------------------------------------------------- */
+.ceremony:focus { outline: none; }
+.ceremony { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: rgb(var(--ground)); transition: opacity .7s ease .15s, visibility 0s linear .85s; overflow: hidden; }
+.ceremony.is-done { opacity: 0; visibility: hidden; pointer-events: none; }
+.ceremony-stage { padding-top: calc(var(--env-w, 80vw) * .22); transition: transform .9s cubic-bezier(.3,.8,.25,1); }
+.ceremony.is-rising .ceremony-stage { transform: translateY(6vh); }

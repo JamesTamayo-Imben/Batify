@@ -1,0 +1,169 @@
+BATIFY PROPRIETARY SOURCE CODE AND DESIGN LICENSE
+
+Copyright (c) 2026 Batify project rightsholder(s). All rights reserved.
+
+IMPORTANT: This is a proprietary license, not an open-source license. No rights
+are granted by implication, estoppel, or otherwise. If you do not agree to these
+terms, do not access, copy, use, or distribute the covered materials.
+
+1. Definitions
+
+"Covered Materials" means the original source code, object code, documentation,
+visual and interaction design, artwork, illustrations, graphics, animations,
+layout, text, and other materials in this project that are owned or controlled
+by the Batify project rightsholder(s), including modified and compiled versions
+of those materials.
+
+"Design" means the distinctive visual, interaction, and presentation choices
+embodied in Batify, including its page composition and layouts; envelope and
+gift-opening presentation; illustrations, icons, and decorative artwork;
+typography and type treatments; color combinations; shapes, motion, and
+transitions; and the selection, arrangement, and coordination of those elements.
+This definition covers the protectable expression and overall presentation of
+the project, not general ideas, methods, functionality, or industry conventions
+that are not protectable under applicable law.
+
+"Rightsholder" means the person or entity that owns or is authorized to license
+the applicable Covered Materials.
+
+"Third-Party Materials" means software, fonts, services, artwork, or other
+materials in or used by this project that are owned by someone other than a
+Rightsholder.
+
+"User Content" means content submitted to or created by an end user of the
+hosted Batify service, including birthday letters, names, wishes, photographs,
+videos, and payment evidence.
+
+2. Ownership and reservation of rights
+
+The Covered Materials are proprietary. As between you and the Rightsholder, the
+Rightsholder retains all right, title, and interest in and to the Covered
+Materials, including all applicable intellectual-property rights. All rights
+not expressly granted in this license are reserved.
+
+This license does not claim ownership of Third-Party Materials or User Content.
+Those materials remain subject to the rights and terms of their respective
+owners and users. A copy of this license does not replace, extend, or override
+any third-party license or service terms.
+
+3. Narrow permission to inspect
+
+If you have lawfully received a copy of this repository, the Rightsholder grants
+you a limited, personal, revocable, non-exclusive, non-transferable, and
+non-sublicensable permission to read and inspect the Covered Materials solely
+to evaluate the project. This permission does not grant a right to operate,
+deploy, publish, modify, adapt, or distribute the project or any part of it.
+
+Visitors may access and use the official Batify-hosted service through its
+provided interface for its intended functionality, subject to any terms shown
+by that service. Access to the service does not grant a license to its source
+code, Design, or other Covered Materials.
+
+4. Restrictions, including design reuse
+
+Except for the narrow inspection permission in Section 3, and only to the
+extent a restriction is prohibited by applicable law, you may not, directly or
+indirectly, or permit another person to:
+
+a. copy, reproduce, publish, distribute, sublicense, sell, rent, lease, host,
+   or otherwise make available any Covered Materials;
+
+b. use, implement, reproduce, imitate, adapt, modify, translate, or create
+   derivative works from any Covered Materials;
+
+c. use, copy, imitate, adapt, or create a derivative of the Design, in whole or
+   in substantial part, in another website, application, product, service,
+   template, portfolio, advertisement, or other work, whether for commercial or
+   non-commercial purposes;
+
+d. extract or reuse the project's visual assets, illustrations, icons, source
+   styling, animation, layout, or other expressive elements, including through
+   screenshots, tracing, recreation, conversion, or use as a design reference
+   for making a substantially similar presentation;
+
+e. use the Covered Materials, screenshots, or other non-public project
+   materials to train, prompt, fine-tune, or evaluate a machine-learning system
+   for the purpose of reproducing the Design or generating a substantially
+   similar product or presentation;
+
+f. remove or alter proprietary notices, or misrepresent the ownership,
+   origin, or authorization of Covered Materials;
+
+g. use the Batify name, logo, or other brand identifiers in a way that suggests
+   sponsorship, endorsement, or affiliation without written permission; or
+
+h. authorize, assist, or encourage another person to do anything prohibited by
+   this section.
+
+Nothing in this section prevents independently creating a work from scratch
+that does not copy or derive from the Covered Materials, or restricts use of
+general ideas, functionality, methods, or elements that applicable law leaves
+free to use.
+
+5. Third-party materials and dependencies
+
+Third-Party Materials are not relicensed by this document. In particular,
+software dependencies and fonts may be governed by their own open-source,
+commercial, or other license terms. You are responsible for identifying and
+complying with the applicable terms before using, copying, or distributing any
+Third-Party Materials. The presence of a dependency in this repository does not
+grant permission to use Batify's Design or other Covered Materials.
+
+6. User content and hosted service
+
+This license does not transfer ownership of User Content to the Rightsholder
+or grant other users a right to reuse it. The handling of User Content on the
+hosted service is governed by the terms and notices presented by that service
+and by applicable law.
+
+7. Term and termination
+
+The permission in Section 3 remains in effect only while you comply with this
+license and may be terminated by the Rightsholder by written notice. This
+license terminates automatically if you materially breach it. Upon termination,
+you must stop all activity that depended on the permission and, if requested,
+delete copies of Covered Materials in your possession or control, except for
+copies that applicable law requires you to retain.
+
+Sections concerning ownership, restrictions, third-party materials, disclaimers,
+limitation of liability, and general terms survive termination to the extent
+permitted by applicable law.
+
+8. Disclaimer of warranties
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE COVERED MATERIALS ARE
+PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, INCLUDING WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT,
+ACCURACY, OR UNINTERRUPTED OPERATION. THE RIGHTSHOLDER DOES NOT WARRANT THAT
+THE MATERIALS WILL MEET YOUR REQUIREMENTS OR BE FREE OF DEFECTS.
+
+9. Limitation of liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, NO RIGHTSHOLDER WILL BE
+LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR
+PUNITIVE DAMAGES, OR FOR LOSS OF PROFITS, REVENUE, DATA, GOODWILL, OR BUSINESS
+OPPORTUNITY, ARISING OUT OF OR RELATING TO THESE TERMS OR THE COVERED MATERIALS,
+UNDER ANY THEORY OF LIABILITY, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+DAMAGES. NOTHING IN THIS LICENSE EXCLUDES OR LIMITS LIABILITY THAT CANNOT
+LAWFULLY BE EXCLUDED OR LIMITED.
+
+10. General terms
+
+This license is the complete statement of the permission granted for the
+Covered Materials and supersedes prior statements about that permission. Any
+broader permission or exception must be in a written instrument issued by the
+Rightsholder. A failure to enforce a provision is not a waiver of that
+provision. If any provision is unenforceable, it will be limited to the minimum
+extent necessary, and the remaining provisions will continue in effect.
+
+This license does not limit rights that cannot be restricted under applicable
+law. Statutory exceptions and limitations, including any applicable rules
+concerning interoperability, accessibility, or lawful reverse engineering,
+remain unaffected to the extent they cannot be waived.
+
+11. Permissions
+
+For a license to use the source code, deploy or modify the project, or use the
+Design in another work, obtain express written permission from the Rightsholder
+before doing so. Permission must identify the materials and uses covered.

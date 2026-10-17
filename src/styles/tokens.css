@@ -1,0 +1,45 @@
+@font-face { font-family: 'Figtree Variable'; font-style: normal; font-weight: 300 900; font-display: swap; src: url('/fonts/figtree-latin-wght-normal.woff2') format('woff2-variations'); }
+@font-face { font-family: 'Figtree Variable'; font-style: italic; font-weight: 300 900; font-display: swap; src: url('/fonts/figtree-latin-wght-italic.woff2') format('woff2-variations'); }
+@font-face { font-family: 'Newsreader Variable'; font-style: normal; font-weight: 200 800; font-display: swap; src: url('/fonts/newsreader-latin-wght-normal.woff2') format('woff2-variations'); }
+@font-face { font-family: 'Newsreader Variable'; font-style: italic; font-weight: 200 800; font-display: swap; src: url('/fonts/newsreader-latin-wght-italic.woff2') format('woff2-variations'); }
+@font-face { font-family: 'Reenie Beanie'; font-weight: 400; font-display: swap; src: url('/fonts/reenie-beanie-latin-400-normal.woff2') format('woff2'); }
+
+/* Colour comes from the Philippine flag: royal blue, flag red, sun yellow, white.
+   Values are space-separated RGB so Tailwind can apply alpha. */
+:root {
+  --ink: 20 20 43;
+  --paper: 250 250 246;
+  --card: 255 255 255;
+  --rule: 217 217 229;
+  --muted: 85 85 107;
+  --sun: 247 197 49;
+  --flag: 201 47 32;
+  --accent: 31 51 199;
+  --accent-deep: 20 34 143;
+  --accent-soft: 232 235 252;
+  --ground: 247 197 49;
+
+  /* Envelope palette (retheme per page) */
+  --env-back: #C9CDF5;
+  --env-side: #E4E7FB;
+  --env-bottom: #F4F5FE;
+  --env-flap: #DDE1FA;
+  --env-liner: #1F33C7;
+  --env-seal: #C92F20;
+  --env-seal-deep: #8E1D12;
+  --flag-1: #1F33C7;
+  --flag-2: #C92F20;
+  --flag-3: #FFFFFF;
+  --flag-4: #14142B;
+}
+
+/* Page themes. Database ids are kept (confetti, lavender, sky); labels live in lib/themes.js. */
+[data-theme='confetti'] { --ground: 247 197 49; --accent: 31 51 199; --accent-deep: 20 34 143; --accent-soft: 232 235 252;
+  --env-back: #C9CDF5; --env-side: #E4E7FB; --env-bottom: #F4F5FE; --env-flap: #DDE1FA; --env-liner: #1F33C7; --env-seal: #C92F20; --env-seal-deep: #8E1D12;
+  --flag-1: #1F33C7; --flag-2: #C92F20; --flag-3: #FFFFFF; --flag-4: #14142B; }
+[data-theme='lavender'] { --ground: 199 182 245; --accent: 59 31 158; --accent-deep: 40 18 120; --accent-soft: 238 232 253;
+  --env-back: #FFE9A8; --env-side: #FFF1C6; --env-bottom: #FFF8E0; --env-flap: #FFEDB5; --env-liner: #3B1F9E; --env-seal: #E0518B; --env-seal-deep: #9E2A5B;
+  --flag-1: #3B1F9E; --flag-2: #F7C531; --flag-3: #FFFFFF; --flag-4: #E0518B; }
+[data-theme='sky'] { --ground: 154 219 208; --accent: 10 85 96; --accent-deep: 6 60 68; --accent-soft: 223 244 241;
+  --env-back: #F9D9C9; --env-side: #FCE6DA; --env-bottom: #FEF2EA; --env-flap: #FBDFD0; --env-liner: #0A5560; --env-seal: #C92F20; --env-seal-deep: #8E1D12;
+  --flag-1: #0A5560; --flag-2: #F7C531; --flag-3: #C92F20; --flag-4: #FFFFFF; }

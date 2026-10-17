@@ -1,0 +1,34 @@
+/* Flip clock */
+.flip { --fw: 3.4rem; --fh: 4.6rem; position: relative; width: var(--fw); height: var(--fh); perspective: 420px; font: 800 2.6rem/1 'Figtree Variable', system-ui, sans-serif; font-variant-numeric: tabular-nums; color: #fff; }
+.flip .half { position: absolute; left: 0; right: 0; height: calc(50% - 1px); overflow: hidden; background: rgb(var(--ink)); backface-visibility: hidden; }
+.flip .half > span { position: absolute; left: 0; right: 0; height: calc(var(--fh) - 2px); display: grid; place-items: center; }
+.flip .top { top: 0; border-radius: 10px 10px 0 0; }
+.flip .bot { bottom: 0; border-radius: 0 0 10px 10px; background: color-mix(in srgb, rgb(var(--ink)) 88%, white); }
+.flip .bot > span { top: calc(0px - (var(--fh) - 2px) / 2); }
+.flip .fold-top { z-index: 3; transform-origin: 50% 100%; animation: flip-top .32s ease-in forwards; }
+.flip .fold-bot { z-index: 3; transform-origin: 50% 0; transform: rotateX(90deg); animation: flip-bot .32s .32s ease-out forwards; }
+@keyframes flip-top { 99% { opacity: 1; } to { transform: rotateX(-90deg); opacity: 0; } }
+@keyframes flip-bot { to { transform: rotateX(0deg); } }
+.flip-unit { text-align: center; }
+.flip-unit small { display: block; margin-top: .5rem; font-weight: 700; font-size: .8rem; }
+@media (min-width: 520px) { .flip { --fw: 4.4rem; --fh: 5.8rem; font-size: 3.4rem; } }
+
+/* Bunting */
+.bunting { position: relative; width: 100%; pointer-events: none; }
+.bunting svg.string { position: absolute; left: 0; top: 0; width: 100%; overflow: visible; }
+.bunting .flagwrap { position: absolute; top: 0; transform: translateX(-50%); transform-origin: 50% 0; animation: flag-sway 4.6s ease-in-out infinite; }
+@keyframes flag-sway { 0%,100% { transform: translateX(-50%) rotate(-3deg); } 50% { transform: translateX(-50%) rotate(3deg); } }
+@media (prefers-reduced-motion: reduce) { .bunting .flagwrap { animation: none; } }
+
+/* Tilt cards */
+.tilt { transform: perspective(700px) rotateX(var(--trx, 0deg)) rotateY(var(--try, 0deg)) translateZ(0); transition: transform .25s cubic-bezier(.2,.7,.2,1); will-change: transform; }
+
+/* Wish arrival */
+@keyframes drop-in { 0% { transform: translateY(-30px) rotateX(40deg) scale(.9); opacity: 0; } 70% { transform: translateY(4px) rotateX(-4deg) scale(1.02); opacity: 1; } 100% { transform: none; opacity: 1; } }
+.drop-in { animation: drop-in .65s cubic-bezier(.3,.8,.3,1) both; transform-origin: 50% 0; }
+@keyframes unwrap-card { 0% { transform: perspective(700px) rotateX(-70deg) scale(.7); opacity: 0; } 100% { transform: none; opacity: 1; } }
+.unwrap-card { animation: unwrap-card .6s cubic-bezier(.3,.9,.3,1) both; transform-origin: 50% 100%; }
+@keyframes wrap-card { 0% { transform: perspective(700px); opacity: 1; } 100% { transform: perspective(700px) rotateX(70deg) scale(.7); opacity: 0; } }
+.wrap-card { animation: wrap-card .45s cubic-bezier(.3,.8,.3,1) both; transform-origin: 50% 100%; }
+@keyframes paper-in { 0% { transform: perspective(1200px) rotateX(-14deg) translateY(30px); opacity: 0; } 100% { transform: none; opacity: 1; } }
+.paper-in { animation: paper-in .9s cubic-bezier(.3,.8,.3,1) both; transform-origin: 50% 0; }

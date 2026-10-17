@@ -1,0 +1,19 @@
+# Minimal Supabase CLI config. Run `supabase link --project-ref <ref>` first.
+project_id = "batify"
+
+# Every function does its own Turnstile / token / secret check, so the
+# platform JWT check is disabled.
+[functions.create-page]
+verify_jwt = false
+
+[functions.send-wish]
+verify_jwt = false
+
+[functions.manage-page]
+verify_jwt = false
+
+[functions.admin]
+verify_jwt = false
+
+[functions.track-open]
+verify_jwt = false
