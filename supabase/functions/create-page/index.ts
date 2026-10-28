@@ -4,6 +4,28 @@ import {
   preflight, randomString, rateLimitDurable, serviceClient, slugify, THEMES, verifyTurnstile,
 } from "../_shared/common.ts";
 
+function campaignIsActive(campaign: {
+  is_enabled: boolean;
+  start_month: number;
+  start_day: number;
+  end_month: number;
+  end_day: number;
+}): boolean {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Manila",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(new Date());
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+  const today = month * 100 + day;
+  const start = campaign.start_month * 100 + campaign.start_day;
+  const end = campaign.end_month * 100 + campaign.end_day;
+  return campaign.is_enabled && (start <= end
+    ? today >= start && today <= end
+    : today >= start || today <= end);
+}
+
 Deno.serve(async (req) => {
   const pre = preflight(req);
   if (pre) return pre;
@@ -47,6 +69,22 @@ Deno.serve(async (req) => {
 
     // 3-5. Slug + token, insert (retry on slug collision)
     const sb = serviceClient();
+    const campaignType = clean(body.campaignType, 24);
+    if (campaignType) {
+      if (!["christmas", "valentines", "anniversary"].includes(campaignType)) {
+        return json({ error: "Unknown seasonal campaign." }, 400);
+      }
+      const { data: campaign, error: campaignError } = await sb
+        .from("campaign_events").select("*").eq("id", campaignType).maybeSingle();
+      if (campaignError) {
+        console.error("load campaign", campaignError);
+        return json({ error: "Seasonal campaigns are not configured. Please contact support." }, 503);
+      }
+      if (!campaign || !campaignIsActive(campaign)) {
+        return json({ error: "This seasonal campaign is not currently accepting new pages." }, 400);
+      }
+    }
+
     const base = slugify(ownerName);
     for (let attempt = 0; attempt < 5; attempt++) {
       const slug = `${base}-${randomString(4)}`;
@@ -58,6 +96,7 @@ Deno.serve(async (req) => {
         title,
         letter,
         birthday_date: body.birthdayDate,
+        campaign_type: campaignType || null,
         reveal_at: revealAt,
         gcash_number: gcash,
         theme,

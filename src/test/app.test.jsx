@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -10,10 +10,14 @@ vi.mock('../lib/confetti', async (importOriginal) => ({
 import Envelope3D, { useEnvelope } from '../components/Envelope3D'
 import FlipCountdown from '../components/FlipCountdown'
 import GiftBox3D from '../components/GiftBox3D'
+import GiftPicker from '../components/GiftPicker'
+import CampaignSettings from '../components/CampaignEditor'
+import Turnstile from '../components/Turnstile'
 import { clearDraft, loadDraft, saveDraft } from '../lib/draft'
 import { hasOpened, markOpened, wishUnwrapped } from '../lib/opened'
 import { WishItem } from '../pages/PublicPage'
 import { themeOf } from '../lib/themes'
+import { giftOptionsFor, isCampaignActive } from '../lib/campaigns'
 
 afterEach(() => { cleanup(); vi.useRealTimers(); localStorage.clear(); sessionStorage.clear() })
 
@@ -22,6 +26,69 @@ describe('themes', () => {
     expect(themeOf('lavender')).toBe('lavender')
     expect(themeOf('nope')).toBe('confetti')
     expect(themeOf(undefined)).toBe('confetti')
+  })
+})
+
+describe('seasonal campaigns', () => {
+  it('activates recurring campaign dates in Philippine time', () => {
+    const christmas = {
+      is_enabled: true, start_month: 11, start_day: 1, end_month: 12, end_day: 31,
+    }
+    expect(isCampaignActive(christmas, new Date('2026-10-31T23:59:00+08:00'))).toBe(false)
+    expect(isCampaignActive(christmas, new Date('2026-11-01T00:00:00+08:00'))).toBe(true)
+    expect(isCampaignActive({ ...christmas, is_enabled: false }, new Date('2026-12-01T12:00:00+08:00'))).toBe(false)
+  })
+
+  it('handles a campaign that spans New Year', () => {
+    const holiday = {
+      is_enabled: true, start_month: 12, start_day: 24, end_month: 1, end_day: 5,
+    }
+    expect(isCampaignActive(holiday, new Date('2027-01-05T23:59:00+08:00'))).toBe(true)
+    expect(isCampaignActive(holiday, new Date('2027-01-06T00:00:00+08:00'))).toBe(false)
+  })
+
+  it('limits event gift choices to configured catalog items', () => {
+    const options = giftOptionsFor({
+      id: 'christmas',
+      gift_options: { teddy: 'Pamasko', unknown: 'Ignored', flower: '' },
+    })
+    expect(options).toEqual({ teddy: 'Pamasko' })
+  })
+
+  it('renders only event-approved gift choices', () => {
+    render(<GiftPicker value="teddy" options={{ teddy: 'Pamasko' }} onChange={() => {}} />)
+    expect(screen.getByRole('radio', { name: 'Pamasko' })).toBeTruthy()
+    expect(screen.queryByRole('radio', { name: 'Flowers' })).toBeNull()
+  })
+
+  it('saves admin campaign dates, copy, activation, and suggested gifts', async () => {
+    const onSave = vi.fn()
+    render(<CampaignSettings busy={false} onSave={onSave} campaigns={[{
+      id: 'christmas',
+      title: 'Christmas Pamasko',
+      description: 'Share gifts',
+      is_enabled: true,
+      start_month: 11,
+      start_day: 1,
+      end_month: 12,
+      end_day: 31,
+      gift_options: { flower: 'Holiday flowers', teddy: 'Christmas teddy' },
+    }]} />)
+
+    fireEvent.change(screen.getByLabelText('Campaign title'), { target: { value: 'Pamasko time' } })
+    fireEvent.change(screen.getByLabelText('Starts (MM-DD)'), { target: { value: '10-15' } })
+    fireEvent.click(screen.getByLabelText('Enabled'))
+    fireEvent.click(screen.getByLabelText('Suggest Teddy bear'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save campaign' }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      campaignId: 'christmas',
+      title: 'Pamasko time',
+      isEnabled: false,
+      startMonth: 10,
+      startDay: 15,
+      giftOptions: { flower: 'Holiday flowers' },
+    })))
   })
 })
 
@@ -75,6 +142,32 @@ describe('useEnvelope', () => {
     act(() => result.current.open())
     unmount()
     expect(() => vi.advanceTimersByTime(5000)).not.toThrow()
+  })
+})
+
+describe('Turnstile', () => {
+  it('explains when the current hostname is not authorized', async () => {
+    const previous = window.turnstile
+    let options
+    window.turnstile = {
+      render: vi.fn((_box, config) => { options = config; return 'widget-id' }),
+      remove: vi.fn(),
+    }
+    const onToken = vi.fn()
+    const onError = vi.fn()
+    const { unmount } = render(<Turnstile onToken={onToken} onError={onError} />)
+
+    try {
+      await waitFor(() => expect(options).toBeTruthy())
+      act(() => options['error-callback'](110200))
+
+      expect(onToken).toHaveBeenCalledWith('')
+      expect(onError).toHaveBeenCalledWith(expect.stringContaining('not authorized'))
+    } finally {
+      unmount()
+      if (previous) window.turnstile = previous
+      else delete window.turnstile
+    }
   })
 })
 

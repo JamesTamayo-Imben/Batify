@@ -40,6 +40,8 @@ credential.
   wrap/unwrap controls.
 - Optional reveal scheduling, wish moderation, photo/video gifts, GCash details,
   and QR-code sharing.
+- Seasonal Christmas pamasko, Valentine's Day, and anniversary gift links with
+  recurring campaign schedules and admin-managed suggested gifts.
 - A lightweight owner dashboard for page activity and wish management.
 - A progressive web app with reduced-motion support and accessible controls.
 
@@ -68,7 +70,7 @@ Edit `.env.local` and provide the values described in
 
 1. In the Supabase SQL Editor, run [`schema.sql`](schema.sql). It creates the
    application tables, row-level security policies, column grants, storage
-   buckets, and supporting functions.
+   buckets, supporting functions, and the seasonal campaign configuration.
 2. In the Supabase project, allow the app's production hostname in the settings
    required by your project and ensure the required tables are available through
    the API.
@@ -115,6 +117,13 @@ npm run preview
 The service worker is enabled in production builds, not in the Vite development
 server.
 
+Seasonal campaign pages use the same shareable wish links as birthday pages.
+The admin console's **Campaigns** tab controls recurring MM-DD date windows,
+titles, descriptions, enablement, and suggested gift labels. Campaigns activate
+automatically inside their configured window using Philippine time. Re-run
+`schema.sql` on existing projects before deploying the updated Edge Functions
+and frontend; it safely adds the campaign table and page occasion column.
+
 ## Environment variables
 
 The client template is [`.env.local.example`](.env.local.example). Copy it to
@@ -137,6 +146,12 @@ variables. **Never use a Supabase secret/service-role key, Turnstile secret, or
 the `sb_secret_` prefix.
 
 `.env.local` is ignored by Git; do not upload it to web hosting or commit it.
+
+The Turnstile site key must authorize the hostname currently serving the app.
+The example key is for `batify.site.je`; when developing on `localhost` or
+`127.0.0.1`, use a key authorized for that hostname and a backend configured
+with its matching secret. Do not remove the CAPTCHA token requirement from
+submit buttons to work around a hostname error.
 
 ## Deployment
 

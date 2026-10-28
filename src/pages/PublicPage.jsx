@@ -18,6 +18,7 @@ import { fireConfetti } from '../lib/confetti'
 import { formatDate, formatDateTime, formatShort } from '../lib/dates'
 import { formatBytes, validateImage, validateMedia, MEDIA_TYPES, IMAGE_TYPES } from '../lib/files'
 import { giftLabel } from '../lib/gifts'
+import { CAMPAIGN_COLUMNS, giftOptionsFor, occasionOf } from '../lib/campaigns'
 import { error as buzzError, success, tap } from '../lib/haptics'
 import { clearUnwrapped, hasOpened, markOpened, markUnwrapped, wishUnwrapped } from '../lib/opened'
 import { copyText, shareLink } from '../lib/share'
@@ -75,11 +76,11 @@ function Ceremony({ page, onFinish }) {
 }
 
 /* ------------------------------------------------------------------- wishes */
-function WishCard({ wish, animate, closing, onWrap }) {
+function WishCard({ wish, animate, closing, onWrap, giftOptions }) {
   return (
     <article className={`${animate ? 'unwrap-card' : ''} ${closing ? 'wrap-card' : ''} rounded-2xl border-2 border-ink bg-white p-5 shadow-sticker`}>
       <div className="flex items-center gap-3">
-        <GiftArt id={wish.gift_type} className="h-14 w-14 shrink-0" label={giftLabel(wish.gift_type)} />
+        <GiftArt id={wish.gift_type} className="h-14 w-14 shrink-0" label={giftOptions?.[wish.gift_type] || giftLabel(wish.gift_type)} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-xl font-extrabold">{wish.sender_name}</p>
           <p className="text-sm text-muted">{formatShort(wish.created_at)}</p>
@@ -96,7 +97,7 @@ function WishCard({ wish, animate, closing, onWrap }) {
   )
 }
 
-export function WishItem({ wish, index, bulkAction, bulkToken, fresh }) {
+export function WishItem({ wish, index, bulkAction, bulkToken, fresh, giftOptions }) {
   const [open, setOpen] = useState(() => wishUnwrapped(wish.id))
   const [lid, setLid] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -141,7 +142,7 @@ export function WishItem({ wish, index, bulkAction, bulkToken, fresh }) {
     clearTimeout(wrapTimer.current)
   }, [])
 
-  if (open) return <WishCard wish={wish} animate={lid} closing={closing} onWrap={wrap} />
+  if (open) return <WishCard wish={wish} animate={lid} closing={closing} onWrap={wrap} giftOptions={giftOptions} />
   return (
     <button ref={btn} type="button" onClick={unwrap} aria-label={`Unwrap the gift from ${wish.sender_name}`}
       className={`${fresh ? 'drop-in' : ''} group flex min-h-[210px] flex-col items-center justify-end rounded-2xl border-2 border-ink bg-white px-4 pb-4 pt-8 text-center shadow-sticker transition-transform hover:-translate-y-1`}>
@@ -170,10 +171,10 @@ function Sent({ gift, text, onAgain }) {
   )
 }
 
-function SendWishForm({ page, revealed }) {
+function SendWishForm({ page, revealed, giftOptions }) {
   const [name, setName] = useState('')
   const [message, setMessage] = useState('')
-  const [gift, setGift] = useState('flower')
+  const [gift, setGift] = useState(() => Object.keys(giftOptions || {})[0] || 'flower')
   const [file, setFile] = useState(null)
   const [token, setToken] = useState('')
   const [busy, setBusy] = useState(false)
@@ -181,6 +182,12 @@ function SendWishForm({ page, revealed }) {
   const [fileErr, setFileErr] = useState('')
   const [sent, setSent] = useState(null)
   const ts = useRef(null)
+
+  useEffect(() => {
+    if (giftOptions && !Object.hasOwn(giftOptions, gift)) {
+      setGift(Object.keys(giftOptions)[0] || 'flower')
+    }
+  }, [gift, giftOptions])
 
   async function submit(e) {
     e.preventDefault()
@@ -209,7 +216,7 @@ function SendWishForm({ page, revealed }) {
     <form onSubmit={submit} className="card space-y-5">
       <div>
         <span className="label" id="pick-l">1. Pick a gift</span>
-        <GiftPicker value={gift} onChange={(g) => { setGift(g); setError(''); setFileErr('') }} disabled={busy} />
+        <GiftPicker value={gift} onChange={(g) => { setGift(g); setError(''); setFileErr('') }} disabled={busy} options={giftOptions} />
       </div>
       {gift === 'media' && (
         <div>
@@ -227,12 +234,12 @@ function SendWishForm({ page, revealed }) {
       </div>
       <div>
         <label className="label" htmlFor="message">3. Your wish <span className="font-normal text-muted">(optional)</span></label>
-        <textarea id="message" className="field min-h-[120px] font-letter text-lg" maxLength={1000} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={`Happy birthday, ${page.owner_name.split(' ')[0]}!`} aria-describedby="msg-hint" />
+        <textarea id="message" className="field min-h-[120px] font-letter text-lg" maxLength={1000} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={`${page.campaign_type === 'christmas' ? 'Merry Christmas' : page.campaign_type === 'valentines' ? 'Happy Valentine’s Day' : page.campaign_type === 'anniversary' ? 'Happy anniversary' : 'Happy birthday'}, ${page.owner_name.split(' ')[0]}!`} aria-describedby="msg-hint" />
         <p id="msg-hint" className="hint">Links are removed from wishes.</p>
       </div>
       <Turnstile ref={ts} onToken={setToken} onError={setError} />
       {error && <p role="alert" className="rounded-lg border-2 border-flag bg-red-50 p-3 text-sm font-semibold text-flag">{error}</p>}
-      <button type="submit" className="btn-primary w-full py-3.5 text-lg" disabled={busy || !token}>{busy ? (gift === 'media' ? 'Uploading...' : 'Sending...') : 'Send wish'}</button>
+      <button type="submit" className="btn-primary w-full py-3.5 text-lg" disabled={busy || !token}>{busy ? (gift === 'media' ? 'Uploading...' : 'Sending...') : page.campaign_type === 'christmas' ? 'Send pamasko' : 'Send wish'}</button>
     </form>
   )
 }
@@ -308,6 +315,8 @@ export default function PublicPage() {
   const { slug } = useParams()
   const [status, setStatus] = useState('loading')
   const [page, setPage] = useState(null)
+  const [campaign, setCampaign] = useState(null)
+  const [campaignError, setCampaignError] = useState('')
   const [revealed, setRevealed] = useState(false)
   const [wishes, setWishes] = useState([])
   const [fresh, setFresh] = useState(() => new Set())
@@ -322,11 +331,20 @@ export default function PublicPage() {
   useEffect(() => {
     let dead = false
     setStatus('loading'); setPage(null); setWishes([]); loaded.current = false
+    setCampaign(null); setCampaignError('')
     sb.from('pages').select(PAGE_COLUMNS).eq('slug', slug).maybeSingle().then(({ data, error }) => {
       if (dead) return
       if (error) return setStatus('error')
       if (!data) return setStatus('missing')
       setPage(data); setRevealed(isRevealed(data)); setCeremony(!hasOpened(data.slug)); setStatus('ready')
+      if (data.campaign_type) {
+        sb.from('campaign_events').select(CAMPAIGN_COLUMNS).eq('id', data.campaign_type).maybeSingle()
+          .then(({ data: event, error: eventError }) => {
+            if (dead) return
+            if (eventError) setCampaignError('Some event gift labels could not be loaded.')
+            else setCampaign(event)
+          })
+      }
     })
     return () => { dead = true }
   }, [slug])
@@ -369,6 +387,8 @@ export default function PublicPage() {
   if (status === 'error') return <NotFound message="We couldn't load this page. Please try again." />
 
   const first = page.owner_name.split(' ')[0]
+  const occasion = occasionOf(page.campaign_type)
+  const giftOptions = page.campaign_type ? giftOptionsFor(campaign || { id: page.campaign_type }) : null
   return (
     <div data-theme={themeOf(page.theme)} className="min-h-dvh bg-paper">
       {ceremony && <Ceremony page={page} onFinish={finishCeremony} />}
@@ -378,8 +398,9 @@ export default function PublicPage() {
         <div className="relative mx-auto max-w-2xl">
           <p className="text-lg font-bold">{formatDate(page.birthday_date)}</p>
           <h1 className="mt-2 text-balance text-5xl sm:text-6xl">{page.title}</h1>
+          {occasion && <p className="mt-3 font-semibold text-accent">{campaign?.title || occasion.label}</p>}
           <button className="btn-ghost btn-sm mt-6" onClick={async () => {
-            const r = await shareLink({ title: page.title, text: `Send ${first} a birthday wish`, url: location.href })
+            const r = await shareLink({ title: page.title, text: occasion ? `${occasion.shareText} to ${first}` : `Send ${first} a birthday wish`, url: location.href })
             setNote(r === 'copied' ? 'Link copied.' : r === 'failed' ? 'Could not share. Copy the address from your browser.' : '')
             if (r === 'copied') setTimeout(() => setNote(''), 2000)
           }}><Icon name="share" size={16} />Share this page</button>
@@ -426,15 +447,16 @@ export default function PublicPage() {
         )}
 
         <section aria-labelledby="send-h">
-          <h2 id="send-h" className="mb-5 text-3xl sm:text-4xl">Send a wish to {first}</h2>
-          <SendWishForm page={page} revealed={revealed} />
+          <h2 id="send-h" className="mb-5 text-3xl sm:text-4xl">{occasion ? `Send ${occasion.label} gifts to ${first}` : `Send a wish to ${first}`}</h2>
+          {campaignError && <p role="status" className="mb-3 text-sm text-flag">{campaignError}</p>}
+          <SendWishForm page={page} revealed={revealed} giftOptions={giftOptions} />
         </section>
 
         {page.gcash_number && <GcashSection page={page} />}
 
         <Link to="/create" className="card flex items-center gap-4 !bg-white transition-transform hover:-translate-y-0.5">
           <LogoMark size={44} />
-          <span><span className="block font-display text-xl font-extrabold">Want a letter like this for your birthday?</span><span className="text-muted">Write yours in about three minutes. It is free.</span></span>
+          <span><span className="block font-display text-xl font-extrabold">{occasion ? 'Want to make a special gift link?' : 'Want a letter like this for your birthday?'}</span><span className="text-muted">Write yours in about three minutes. It is free.</span></span>
         </Link>
       </div>
 

@@ -6,6 +6,7 @@ import { postJSON } from '../lib/ajax'
 import { formatDateTime, peso } from '../lib/dates'
 import { giftLabel } from '../lib/gifts'
 import { copyText } from '../lib/share'
+import CampaignSettings from '../components/CampaignEditor'
 
 const SKEY = 'batify:admin'
 const getSecret = () => { try { return sessionStorage.getItem(SKEY) || '' } catch { return '' } }
@@ -17,6 +18,7 @@ export default function Admin() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [stats, setStats] = useState(null)
+  const [campaigns, setCampaigns] = useState([])
   const [rows, setRows] = useState({ pages: [], wishes: [], reports: [], contributions: [] })
   const [q, setQ] = useState('')
   const [pendingOnly, setPendingOnly] = useState(true)
@@ -41,6 +43,7 @@ export default function Admin() {
       if (which === 'wishes') await call('list-wishes', { pending: pendingOnly }).then((d) => setRows((r) => ({ ...r, wishes: d.wishes })))
       if (which === 'reports') await call('list-reports').then((d) => setRows((r) => ({ ...r, reports: d.reports })))
       if (which === 'payments') await call('list-contributions').then((d) => setRows((r) => ({ ...r, contributions: d.contributions })))
+      if (which === 'campaigns') await call('list-campaigns').then((d) => setCampaigns(d.campaigns))
     } catch (e) {
       setError(e.message)
       if (/invalid admin secret/i.test(e.message)) logout()
@@ -77,7 +80,7 @@ export default function Admin() {
     )
   }
 
-  const tabs = [['overview', 'Overview'], ['pages', 'Pages'], ['wishes', 'Wishes'], ['reports', 'Reports'], ['payments', 'Payments']]
+  const tabs = [['overview', 'Overview'], ['pages', 'Pages'], ['wishes', 'Wishes'], ['reports', 'Reports'], ['payments', 'Payments'], ['campaigns', 'Campaigns']]
   const WishBody = ({ w }) => (
     <>
       <p className="font-bold">{w.sender_name} <span className="ml-1 text-sm font-normal text-muted">{giftLabel(w.gift_type)}</span></p>
@@ -188,6 +191,11 @@ export default function Admin() {
           ))}
           {!busy && rows.contributions.length === 0 && <p className="card text-center text-sm text-slate-500">No contributions.</p>}
         </div>
+      )}
+
+      {tab === 'campaigns' && (
+        <CampaignSettings campaigns={campaigns} busy={busy}
+          onSave={(payload) => act('update-campaign', payload)} />
       )}
     </div>
   )

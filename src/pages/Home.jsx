@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AdSlot from '../components/AdSlot'
 import Banderitas from '../components/Banderitas'
@@ -10,6 +10,8 @@ import Icon from '../components/Icon'
 import { SLOTS } from '../lib/ads'
 import { GIFTS } from '../lib/gifts'
 import { fireConfetti } from '../lib/confetti'
+import { CAMPAIGN_COLUMNS, isCampaignActive } from '../lib/campaigns'
+import { sb } from '../lib/supabase'
 import useTitle from '../lib/useTitle'
 
 const SAMPLE = 'Thank you for making my year loud, messy and happy. Leave me a wish.'
@@ -52,6 +54,20 @@ const FAQ = [
 export default function Home() {
   useTitle('Batify: birthday letters, wishes and gifts in one link')
   const [boxOpen, setBoxOpen] = useState(false)
+  const [campaigns, setCampaigns] = useState([])
+  const [campaignError, setCampaignError] = useState('')
+
+  useEffect(() => {
+    let dead = false
+    sb.from('campaign_events').select(CAMPAIGN_COLUMNS).eq('is_enabled', true)
+      .then(({ data, error }) => {
+        if (dead) return
+        if (error) setCampaignError('Seasonal links are temporarily unavailable.')
+        else setCampaigns((data || []).filter((campaign) => isCampaignActive(campaign)))
+      })
+    return () => { dead = true }
+  }, [])
+
   return (
     <div>
       {/* Hero: the envelope is the product, so it is the first thing you can touch. */}
@@ -72,6 +88,26 @@ export default function Home() {
           <HeroEnvelope />
         </div>
       </section>
+
+      {(campaigns.length > 0 || campaignError) && (
+        <section className="border-b-2 border-ink bg-sun/30 px-4 py-10 sm:px-6" aria-labelledby="campaigns-h">
+          <div className="mx-auto max-w-6xl">
+            <h2 id="campaigns-h" className="text-3xl sm:text-4xl">Make a special moment shareable</h2>
+            <p className="mt-2 text-muted">Create a link for someone you love and let their people send wishes and gifts.</p>
+            {campaignError && <p role="status" className="mt-3 text-sm font-semibold text-flag">{campaignError}</p>}
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              {campaigns.map((campaign) => (
+                <Link key={campaign.id} to={`/create?campaign=${encodeURIComponent(campaign.id)}`}
+                  className="card bg-white transition-transform hover:-translate-y-0.5">
+                  <h3 className="text-2xl">{campaign.title}</h3>
+                  <p className="mt-2 text-muted">{campaign.description}</p>
+                  <span className="link mt-4 inline-block">Create a link</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6" aria-labelledby="how-h">
         <h2 id="how-h" className="max-w-xl text-4xl sm:text-5xl">From blank page to full inbox in three steps</h2>

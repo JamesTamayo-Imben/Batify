@@ -52,6 +52,63 @@ Deno.serve(async (req) => {
         return json({ stats: { pages, wishes, pendingWishes, contributions, pendingPay, reports } });
       }
 
+      case "list-campaigns": {
+        const { data, error } = await sb.from("campaign_events").select("*").order("id");
+        if (error) return json({ error: error.message }, 500);
+        return json({ campaigns: data });
+      }
+
+      case "update-campaign": {
+        const campaignId = clean(body.campaignId, 24);
+        if (!["christmas", "valentines", "anniversary"].includes(campaignId)) {
+          return json({ error: "Unknown seasonal campaign." }, 400);
+        }
+
+        const monthDay = (month: unknown, day: unknown) => {
+          const m = Number(month), d = Number(day);
+          if (!Number.isInteger(m) || !Number.isInteger(d) || m < 1 || m > 12) return false;
+          return d >= 1 && d <= new Date(Date.UTC(2000, m, 0)).getUTCDate();
+        };
+        if (!monthDay(body.startMonth, body.startDay) || !monthDay(body.endMonth, body.endDay)) {
+          return json({ error: "Enter valid campaign start and end dates (month and day)." }, 400);
+        }
+
+        const title = clean(body.title, 80);
+        const description = clean(body.description, 240);
+        if (!title || !description) return json({ error: "Campaign title and description are required." }, 400);
+
+        const allowedGifts = ["flower", "teddy", "chocolate", "media"];
+        const giftOptions = body.giftOptions;
+        if (!giftOptions || typeof giftOptions !== "object" || Array.isArray(giftOptions)) {
+          return json({ error: "Choose at least one gift option." }, 400);
+        }
+        const validOptions: Record<string, string> = {};
+        for (const [giftId, value] of Object.entries(giftOptions)) {
+          if (!allowedGifts.includes(giftId) || typeof value !== "string") {
+            return json({ error: "Invalid campaign gift option." }, 400);
+          }
+          const label = clean(value, 40);
+          if (label) validOptions[giftId] = label;
+        }
+        if (Object.keys(validOptions).length === 0) {
+          return json({ error: "Choose at least one gift option and give it a name." }, 400);
+        }
+
+        const { data, error } = await sb.from("campaign_events").update({
+          title,
+          description,
+          is_enabled: body.isEnabled === true,
+          start_month: Number(body.startMonth),
+          start_day: Number(body.startDay),
+          end_month: Number(body.endMonth),
+          end_day: Number(body.endDay),
+          gift_options: validOptions,
+          updated_at: new Date().toISOString(),
+        }).eq("id", campaignId).select("*").single();
+        if (error) return json({ error: error.message }, 500);
+        return json({ campaign: data });
+      }
+
       case "list-pages": {
         const q = clean(body.q, 60).replace(/[%,()]/g, "");
         let query = sb.from("pages")

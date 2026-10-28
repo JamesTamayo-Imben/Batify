@@ -43,8 +43,12 @@ const Turnstile = forwardRef(function Turnstile({ onToken, onError }, ref) {
           sitekey: SITE_KEY,
           callback: (t) => cbs.current.onToken?.(t),
           'expired-callback': () => cbs.current.onToken?.(''),
-          'error-callback': () => {
+          'error-callback': (errorCode) => {
             cbs.current.onToken?.('')
+            if (String(errorCode) === '110200') {
+              cbs.current.onError?.('This hostname is not authorized for the CAPTCHA site key. Add it to the key’s allowed hostnames in Cloudflare.')
+              return true
+            }
             cbs.current.onError?.('CAPTCHA error. Please try again.')
           },
         })

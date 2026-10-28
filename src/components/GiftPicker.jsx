@@ -5,7 +5,7 @@ import useTilt from '../lib/useTilt'
 import GiftArt from './art/GiftArt'
 import Icon from './Icon'
 
-function Tile({ g, on, disabled, onPick }) {
+function Tile({ g, label, on, disabled, onPick }) {
   const ref = useRef(null)
   useTilt(ref, { max: 9, xVar: '--trx', yVar: '--try', local: true })
   return (
@@ -14,15 +14,18 @@ function Tile({ g, on, disabled, onPick }) {
       style={{ minHeight: 44 }}>
       {on && <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-ink text-white"><Icon name="check" size={14} strokeWidth={3} /></span>}
       <GiftArt id={g.id} className={`h-20 w-20 transition-transform duration-300 ${on ? 'scale-110 -rotate-3' : ''}`} />
-      {g.label}
+      {label || g.label}
     </button>
   )
 }
 
-export default function GiftPicker({ value, onChange, disabled }) {
+export default function GiftPicker({ value, onChange, disabled, options }) {
+  const gifts = options
+    ? GIFTS.filter((gift) => Object.hasOwn(options, gift.id))
+    : GIFTS
   return (
     <div role="radiogroup" aria-label="Choose a gift" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {GIFTS.map((g) => <Tile key={g.id} g={g} on={value === g.id} disabled={disabled} onPick={onChange} />)}
+      {gifts.map((g) => <Tile key={g.id} g={g} label={options?.[g.id]} on={value === g.id} disabled={disabled} onPick={onChange} />)}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import AdSlot from '../components/AdSlot'
 import Envelope3D, { useEnvelope } from '../components/Envelope3D'
 import Icon from '../components/Icon'
@@ -9,10 +9,12 @@ import { SLOTS } from '../lib/ads'
 import { fireConfetti } from '../lib/confetti'
 import { fromLocalInput } from '../lib/dates'
 import { clearDraft, loadDraft, saveDraft } from '../lib/draft'
+import { CAMPAIGN_COLUMNS, isCampaignActive, occasionOf } from '../lib/campaigns'
 import { error as buzzError, success, tap } from '../lib/haptics'
 import { rememberPage } from '../lib/mypages'
 import { copyText, shareLink } from '../lib/share'
 import { qrPng, qrSvg } from '../lib/qr'
+import { sb } from '../lib/supabase'
 import { THEMES } from '../lib/themes'
 import useTitle from '../lib/useTitle'
 
@@ -48,7 +50,7 @@ function LinkCard({ title, url, tone, warning, actions }) {
   )
 }
 
-function Result({ result, f }) {
+function Result({ result, f, campaign }) {
   const publicUrl = `${location.origin}/p/${result.slug}`
   const editUrl = `${location.origin}/edit/${result.editToken}`
   const [sealed, setSealed] = useState(false)
@@ -63,7 +65,8 @@ function Result({ result, f }) {
     const a = document.createElement('a')
     a.href = await qrPng(publicUrl); a.download = `batify-${result.slug}.png`; a.click()
   }
-  const wa = `https://wa.me/?text=${encodeURIComponent(`Send me a birthday wish: ${publicUrl}`)}`
+  const shareText = campaign?.shareText || 'Send me a birthday wish'
+  const wa = `https://wa.me/?text=${encodeURIComponent(`${shareText}: ${publicUrl}`)}`
   const mail = `mailto:?subject=${encodeURIComponent('My Batify edit link')}&body=${encodeURIComponent(`Keep this private. It is the only way to manage my birthday page:\n${editUrl}`)}`
 
   return (
@@ -79,7 +82,7 @@ function Result({ result, f }) {
       <div className="page-wrap space-y-5">
         <LinkCard title="Public link" url={publicUrl} actions={
           <>
-            <button className="btn-ghost" onClick={async () => { const r = await shareLink({ title: f.title, text: 'Send me a birthday wish', url: publicUrl }); if (r === 'copied') setShareMsg('Link copied to clipboard.') }}><Icon name="share" size={18} />Share</button>
+            <button className="btn-ghost" onClick={async () => { const r = await shareLink({ title: f.title, text: shareText, url: publicUrl }); if (r === 'copied') setShareMsg('Link copied to clipboard.') }}><Icon name="share" size={18} />Share</button>
             <a className="btn-ghost" href={wa} target="_blank" rel="noreferrer noopener"><Icon name="chat" size={18} />WhatsApp</a>
             <Link to={`/p/${result.slug}`} className="btn-ghost">Preview page</Link>
           </>
@@ -109,7 +112,11 @@ function Result({ result, f }) {
 
 /* ------------------------------------------------------------------ the wizard */
 export default function Create() {
-  useTitle('Write your birthday letter - Batify')
+  const [searchParams] = useSearchParams()
+  const campaignId = searchParams.get('campaign')
+  const [campaign, setCampaign] = useState(null)
+  const [campaignStatus, setCampaignStatus] = useState(campaignId ? 'loading' : 'idle')
+  const [campaignError, setCampaignError] = useState('')
   const [f, setF] = useState(() => ({ ...EMPTY, ...(loadDraft() || {}) }))
   const [wiz, setWiz] = useState(0)
   const [errs, setErrs] = useState({})
@@ -121,6 +128,33 @@ export default function Create() {
   const letterRef = useRef(null)
   const heading = useRef(null)
   const env = useEnvelope({ max: 3 })
+  useTitle(campaign?.title ? `Create a ${campaign.title} link - Batify` : 'Write your birthday letter - Batify')
+
+  useEffect(() => {
+    if (!campaignId) {
+      setCampaign(null)
+      setCampaignStatus('idle')
+      setCampaignError('')
+      return
+    }
+    let dead = false
+    setCampaignStatus('loading')
+    sb.from('campaign_events').select(CAMPAIGN_COLUMNS).eq('id', campaignId).maybeSingle()
+      .then(({ data, error: loadError }) => {
+        if (dead) return
+        if (loadError) {
+          setCampaignError('Could not load this seasonal campaign. Please try again later.')
+          setCampaignStatus('error')
+        } else if (!data || !isCampaignActive(data)) {
+          setCampaignError('This seasonal campaign is not currently accepting new pages.')
+          setCampaignStatus('error')
+        } else {
+          setCampaign(data)
+          setCampaignStatus('ready')
+        }
+      })
+    return () => { dead = true }
+  }, [campaignId])
 
   useEffect(() => { saveDraft(f) }, [f])
   useEffect(() => { env.goTo(wiz === 1 ? 3 : 0) }, [wiz]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -133,7 +167,7 @@ export default function Create() {
     if (i === 0) {
       if (!f.ownerName.trim()) e.ownerName = 'Add your name so friends know whose letter this is.'
       if (!f.title.trim()) e.title = 'Give the page a title, like "Maria turns 25".'
-      if (!f.birthdayDate) e.birthdayDate = 'Pick your birthday.'
+      if (!f.birthdayDate) e.birthdayDate = `Pick your ${occasionOf(campaign?.id)?.dateLabel.toLowerCase() || 'birthday'}.`
     }
     if (i === 1 && f.letter.trim().length < 10) e.letter = 'Write at least a couple of sentences.'
     if (i === 2) {
@@ -159,6 +193,7 @@ export default function Create() {
       const data = await postJSON('create-page', {
         turnstileToken: token, ownerName: f.ownerName.trim(), title: f.title.trim(), letter: f.letter.trim(),
         birthdayDate: f.birthdayDate, revealAt: fromLocalInput(f.revealAt), gcashNumber: f.gcashNumber.trim() || undefined, theme: f.theme,
+        campaignType: campaign?.id,
       })
       rememberPage({ slug: data.slug, token: data.editToken, title: f.title.trim() })
       clearDraft(); success(); setResult(data); window.scrollTo({ top: 0 })
@@ -167,9 +202,30 @@ export default function Create() {
     } finally { setBusy(false) }
   }
 
-  if (result) return <Result result={result} f={f} />
+  if (campaignStatus === 'loading') {
+    return <div className="page-wrap text-center" role="status">Loading seasonal campaign…</div>
+  }
+  if (campaignStatus === 'error') {
+    return (
+      <div className="page-wrap">
+        <h1 className="text-4xl">Campaign unavailable</h1>
+        <p role="alert" className="mt-3 text-flag">{campaignError}</p>
+        <Link to="/" className="btn-primary mt-5">Back to Batify</Link>
+      </div>
+    )
+  }
+  if (result) return <Result result={result} f={f} campaign={occasionOf(campaign?.id)} />
 
   const first = f.ownerName.trim().split(/\s+/)[0]
+  const occasion = occasionOf(campaign?.id)
+  const starters = occasion?.id === 'christmas'
+    ? ['This Christmas, I wish you', 'Thank you for always', 'My favorite holiday memory is', 'My wish for your year ahead is']
+    : occasion?.id === 'valentines'
+      ? ['I love how you', 'My favorite memory of us is', 'You make every day', 'I am grateful for']
+      : occasion?.id === 'anniversary'
+        ? ['My favorite memory of us is', 'Thank you for another year of', 'I still love when you', 'Here is to many more years of']
+        : STARTERS
+  const dateLabel = occasion?.dateLabel || 'Birthday'
   return (
     <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-14 lg:py-12">
       <div>
@@ -183,6 +239,7 @@ export default function Create() {
         </ol>
         <p className="mb-1 text-sm font-bold text-muted sm:hidden">Step {wiz + 1} of 4</p>
         <h1 ref={heading} tabIndex={-1} className="text-4xl outline-none sm:text-5xl">{['Who is this letter from?', 'Say what you want to say', 'Add a little surprise', 'Seal the envelope'][wiz]}</h1>
+        {campaign && <p className="mt-2 font-semibold text-accent">{campaign.title} link · Share it with friends and family.</p>}
 
         <form onSubmit={submit} className="mt-7 space-y-6" noValidate>
           {wiz === 0 && (
@@ -191,9 +248,9 @@ export default function Create() {
                 <input id="ownerName" className="field" maxLength={60} value={f.ownerName} onChange={set('ownerName')} placeholder="Maria Santos" autoComplete="name" aria-invalid={!!errs.ownerName} aria-describedby={errs.ownerName ? 'ownerName-err' : undefined} />
               </Field>
               <Field id="title" label="Page title" error={errs.title} hint="This is the headline on the envelope.">
-                <input id="title" className="field" maxLength={120} value={f.title} onChange={set('title')} placeholder={first ? `${first} turns 25` : 'Maria turns 25'} aria-invalid={!!errs.title} aria-describedby={`title-${errs.title ? 'err' : 'hint'}`} />
+                <input id="title" className="field" maxLength={120} value={f.title} onChange={set('title')} placeholder={campaign?.title || (first ? `${first} turns 25` : 'Maria turns 25')} aria-invalid={!!errs.title} aria-describedby={`title-${errs.title ? 'err' : 'hint'}`} />
               </Field>
-              <Field id="birthdayDate" label="Birthday" error={errs.birthdayDate}>
+              <Field id="birthdayDate" label={dateLabel} error={errs.birthdayDate}>
                 <input id="birthdayDate" type="date" className="field" value={f.birthdayDate} onChange={set('birthdayDate')} aria-invalid={!!errs.birthdayDate} aria-describedby={errs.birthdayDate ? 'birthdayDate-err' : undefined} />
               </Field>
             </>
@@ -208,7 +265,7 @@ export default function Create() {
               <div>
                 <p className="label">Stuck? Start with one of these</p>
                 <div className="flex flex-wrap gap-2">
-                  {STARTERS.map((s) => <button key={s} type="button" onClick={() => addStarter(s)} className="min-h-[44px] rounded-full border-2 border-ink bg-white px-4 text-sm font-bold hover:bg-sun">{s}...</button>)}
+                  {starters.map((s) => <button key={s} type="button" onClick={() => addStarter(s)} className="min-h-[44px] rounded-full border-2 border-ink bg-white px-4 text-sm font-bold hover:bg-sun">{s}...</button>)}
                 </div>
               </div>
             </>
@@ -242,7 +299,7 @@ export default function Create() {
           {wiz === 3 && (
             <>
               <dl className="card divide-y-2 divide-ink/10 !p-0">
-                {[['From', f.ownerName], ['Title', f.title], ['Birthday', f.birthdayDate], ['Wishes', f.revealAt ? `Hidden until ${new Date(f.revealAt).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}` : 'Visible right away'], ['GCash', f.gcashNumber || 'Off']].map(([k, v]) => (
+                {[['From', f.ownerName], ['Title', f.title], [dateLabel, f.birthdayDate], ['Wishes', f.revealAt ? `Hidden until ${new Date(f.revealAt).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}` : 'Visible right away'], ['GCash', f.gcashNumber || 'Off']].map(([k, v]) => (
                   <div key={k} className="grid grid-cols-[96px_1fr] gap-3 px-5 py-3"><dt className="font-bold text-muted">{k}</dt><dd className="min-w-0 break-words font-semibold">{v}</dd></div>
                 ))}
               </dl>

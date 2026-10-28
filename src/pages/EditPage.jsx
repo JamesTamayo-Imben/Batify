@@ -11,6 +11,8 @@ import Icon from '../components/Icon'
 import { qrPng, qrSvg } from '../lib/qr'
 import { copyText, shareLink } from '../lib/share'
 import { rememberPage } from '../lib/mypages'
+import { CAMPAIGN_COLUMNS, giftOptionsFor, occasionOf } from '../lib/campaigns'
+import { sb } from '../lib/supabase'
 import { THEMES } from '../lib/themes'
 import useTitle from '../lib/useTitle'
 
@@ -27,11 +29,11 @@ function Toggle({ checked, onChange, label, hint, disabled }) {
   )
 }
 
-function WishRow({ wish, pending, busy, onApprove, onDelete }) {
+function WishRow({ wish, pending, busy, onApprove, onDelete, giftOptions }) {
   return (
     <li className="card !p-4">
       <div className="flex items-start gap-3">
-        <GiftArt id={wish.gift_type} className="h-12 w-12 shrink-0" label={giftLabel(wish.gift_type)} />
+        <GiftArt id={wish.gift_type} className="h-12 w-12 shrink-0" label={giftOptions?.[wish.gift_type] || giftLabel(wish.gift_type)} />
         <div className="min-w-0 flex-1">
           <p className="font-bold">{wish.sender_name} <span className="ml-1 text-xs font-normal text-slate-400">{formatDateTime(wish.created_at)}</span></p>
           {wish.message && <p className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-700">{wish.message}</p>}
@@ -71,6 +73,8 @@ export default function EditPage() {
   const [tab, setTab] = useState('wishes')
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState(null) // {type, text}
+  const [campaign, setCampaign] = useState(null)
+  const [campaignError, setCampaignError] = useState('')
 
   useTitle(data ? `Manage — ${data.page.title}` : 'Manage — Batify')
 
@@ -94,6 +98,22 @@ export default function EditPage() {
   }, [call, token])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    const campaignType = data?.page.campaign_type
+    if (!campaignType) {
+      setCampaign(null)
+      setCampaignError('')
+      return
+    }
+    let dead = false
+    sb.from('campaign_events').select(CAMPAIGN_COLUMNS).eq('id', campaignType).maybeSingle()
+      .then(({ data: event, error }) => {
+        if (dead) return
+        if (error) setCampaignError('Custom campaign gift labels could not be loaded.')
+        else setCampaign(event)
+      })
+    return () => { dead = true }
+  }, [data?.page.campaign_type])
 
   // Run a mutation with busy state + error surfacing
   async function run(fn, okMsg) {
@@ -129,6 +149,8 @@ export default function EditPage() {
   const live = wishes.filter((w) => w.is_approved)
   const pendingPay = contributions.filter((c) => c.status === 'pending')
   const publicUrl = `${location.origin}/p/${page.slug}`
+  const occasion = occasionOf(page.campaign_type)
+  const giftOptions = page.campaign_type ? giftOptionsFor(campaign || { id: page.campaign_type }) : null
 
   const patchWish = (id, fn) => setData((d) => ({ ...d, wishes: fn(d.wishes, id) }))
 
@@ -144,7 +166,7 @@ export default function EditPage() {
         <div className="flex items-center gap-2 text-sm font-bold text-muted"><LogoMark size={22} />Dashboard</div>
         <h1 className="mt-1 text-4xl sm:text-5xl">{page.title}</h1>
         <p className="mt-2 text-muted">
-          {formatDate(page.birthday_date)}. {page.is_published ? 'Published' : 'Unpublished'}.
+          {occasion ? `${occasion.label}: ${formatDate(page.birthday_date)}` : formatDate(page.birthday_date)}. {page.is_published ? 'Published' : 'Unpublished'}.
           {page.reveal_at && ` Wishes reveal ${formatDateTime(page.reveal_at)}.`}
         </p>
         <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -163,8 +185,9 @@ export default function EditPage() {
         <div className="mt-4 flex flex-wrap gap-2">
           <Link to={`/p/${page.slug}`} className="btn-ghost btn-sm"><Icon name="eye" size={16} />View page</Link>
           <button className="btn-ghost btn-sm" onClick={async () => flash((await copyText(publicUrl)) ? 'Public link copied' : 'Could not copy', 'ok')}><Icon name="copy" size={16} />Copy link</button>
-          <button className="btn-ghost btn-sm" onClick={() => shareLink({ title: page.title, text: 'Send me a birthday wish', url: publicUrl })}><Icon name="share" size={16} />Share</button>
+          <button className="btn-ghost btn-sm" onClick={() => shareLink({ title: page.title, text: occasion?.shareText || 'Send me a birthday wish', url: publicUrl })}><Icon name="share" size={16} />Share</button>
         </div>
+        {campaignError && <p role="status" className="mt-2 text-sm text-flag">{campaignError}</p>}
         <ShareKit url={publicUrl} slug={page.slug} />
       </header>
 
@@ -191,6 +214,7 @@ export default function EditPage() {
               <ul className="space-y-3">
                 {pending.map((w) => (
                   <WishRow key={w.id} wish={w} pending busy={busy}
+                    giftOptions={giftOptions}
                     onApprove={() => run(async () => { await call('approve-wish', { wishId: w.id }); patchWish(w.id, (ws, id) => ws.map((x) => x.id === id ? { ...x, is_approved: true } : x)) }, 'Wish approved')}
                     onDelete={() => confirm('Delete this wish?') && run(async () => { await call('delete-wish', { wishId: w.id }); patchWish(w.id, (ws, id) => ws.filter((x) => x.id !== id)) }, 'Wish deleted')} />
                 ))}
@@ -203,6 +227,7 @@ export default function EditPage() {
               <ul className="space-y-3">
                 {live.map((w) => (
                   <WishRow key={w.id} wish={w} busy={busy}
+                    giftOptions={giftOptions}
                     onDelete={() => confirm('Remove this wish from your page?') && run(async () => { await call('delete-wish', { wishId: w.id }); patchWish(w.id, (ws, id) => ws.filter((x) => x.id !== id)) }, 'Wish removed')} />
                 ))}
               </ul>
@@ -212,7 +237,7 @@ export default function EditPage() {
       )}
 
       {tab === 'gcash' && <GcashTab data={data} setData={setData} run={run} call={call} busy={busy} />}
-      {tab === 'settings' && <SettingsTab page={page} setData={setData} run={run} call={call} busy={busy} token={token} />}
+      {tab === 'settings' && <SettingsTab page={page} setData={setData} run={run} call={call} busy={busy} token={token} dateLabel={occasion?.dateLabel || 'Birthday'} />}
     </div>
   )
 }
@@ -280,7 +305,7 @@ function GcashTab({ data, setData, run, call, busy }) {
 }
 
 /* ------------------------------------------------------------- Settings tab */
-function SettingsTab({ page, setData, run, call, busy, token }) {
+function SettingsTab({ page, setData, run, call, busy, token, dateLabel }) {
   const [f, setF] = useState({
     owner_name: page.owner_name,
     title: page.title,
@@ -338,7 +363,7 @@ function SettingsTab({ page, setData, run, call, busy, token }) {
       </div>
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
-          <label className="label" htmlFor="s-bday">Birthday</label>
+          <label className="label" htmlFor="s-bday">{dateLabel}</label>
           <input id="s-bday" type="date" className="field" required value={f.birthday_date} onChange={set('birthday_date')} />
         </div>
         <div>

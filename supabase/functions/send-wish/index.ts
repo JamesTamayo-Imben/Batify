@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     const slug = clean(form.get("slug"), 80);
     const { data: page } = await sb
       .from("pages")
-      .select("id, owner_name, auto_approve_wishes, gcash_number, is_published")
+      .select("id, owner_name, auto_approve_wishes, gcash_number, is_published, campaign_type")
       .eq("slug", slug).eq("is_published", true).maybeSingle();
     if (!page) return json({ error: "Page not found." }, 404);
 
@@ -85,6 +85,18 @@ Deno.serve(async (req) => {
     // ------------------------------------------------------------------ wish
     const giftType = clean(form.get("giftType"), 20) || "flower";
     if (!GIFTS.includes(giftType)) return json({ error: "Invalid gift." }, 400);
+    if (page.campaign_type) {
+      const { data: campaign, error: campaignError } = await sb
+        .from("campaign_events").select("gift_options").eq("id", page.campaign_type).maybeSingle();
+      if (campaignError) {
+        console.error("load campaign gift options", campaignError);
+        return json({ error: "This page's gift options are temporarily unavailable." }, 503);
+      }
+      if (!campaign?.gift_options || typeof campaign.gift_options !== "object" ||
+        !Object.hasOwn(campaign.gift_options, giftType)) {
+        return json({ error: "That gift is not available for this page." }, 400);
+      }
+    }
 
     const message = stripUrls(clean(form.get("message"), 1000));
 

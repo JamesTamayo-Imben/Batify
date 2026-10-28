@@ -23,6 +23,7 @@ create table if not exists public.pages (
   gcash_number        text,
   gcash_qr_url        text,
   is_published        boolean default true,
+  campaign_type       text check (campaign_type in ('christmas', 'valentines', 'anniversary')),
   created_at          timestamptz default now()
 );
 create index if not exists pages_edit_token_idx on public.pages (edit_token);
@@ -174,6 +175,56 @@ begin
     alter publication supabase_realtime add table public.wishes;
   end if;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- V3: seasonal occasion campaigns (safe to re-run)
+-- Campaign dates recur each year; windows may cross New Year's Eve.
+-- ---------------------------------------------------------------------------
+
+alter table public.pages
+  add column if not exists campaign_type text
+  check (campaign_type in ('christmas', 'valentines', 'anniversary'));
+grant select (campaign_type) on public.pages to anon, authenticated;
+
+create table if not exists public.campaign_events (
+  id text primary key check (id in ('christmas', 'valentines', 'anniversary')),
+  title text not null,
+  description text not null,
+  is_enabled boolean not null default false,
+  start_month smallint not null check (start_month between 1 and 12),
+  start_day smallint not null check (start_day between 1 and 31),
+  end_month smallint not null check (end_month between 1 and 12),
+  end_day smallint not null check (end_day between 1 and 31),
+  gift_options jsonb not null default '{}'::jsonb check (jsonb_typeof(gift_options) = 'object'),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.campaign_events
+  (id, title, description, is_enabled, start_month, start_day, end_month, end_day, gift_options)
+values
+  ('christmas', 'Christmas Pamasko',
+   'Make a gift link for your ninongs and ninangs to send their pamasko.',
+   true, 11, 1, 12, 31,
+   '{"flower":"Holiday flowers","teddy":"Christmas teddy","chocolate":"Christmas treats","media":"Photo or video"}'),
+  ('valentines', 'Valentine''s Day',
+   'Share a love note and let someone send a little surprise.',
+   true, 2, 1, 2, 14,
+   '{"flower":"Roses","teddy":"Loveable teddy","chocolate":"Sweet treats","media":"Photo or video"}'),
+  ('anniversary', 'Anniversary',
+   'Celebrate your anniversary with a link for wishes and gifts.',
+   true, 1, 1, 12, 31,
+   '{"flower":"Anniversary flowers","teddy":"Keepsake teddy","chocolate":"Sweet treats","media":"Photo or video"}')
+on conflict (id) do nothing;
+
+alter table public.campaign_events enable row level security;
+revoke all on public.campaign_events from anon, authenticated;
+grant select (
+  id, title, description, is_enabled, start_month, start_day, end_month, end_day, gift_options
+) on public.campaign_events to anon, authenticated;
+
+drop policy if exists campaign_events_public_read on public.campaign_events;
+create policy campaign_events_public_read on public.campaign_events
+  for select to anon, authenticated using (true);
 
 -- ---------------------------------------------------------------------------
 -- STORAGE

@@ -15,5 +15,5 @@ export const sb = createClient(url || 'http://localhost:54321', key || 'anon', {
 // edit_token is deliberately not selectable by anon (column-level grants in schema.sql),
 // so we must always list columns — never select('*') on pages.
 export const PAGE_COLUMNS =
-  'id,slug,owner_name,title,letter,birthday_date,theme,reveal_at,auto_approve_wishes,gcash_number,gcash_qr_url,is_published,created_at'
+  'id,slug,owner_name,title,letter,birthday_date,theme,reveal_at,auto_approve_wishes,gcash_number,gcash_qr_url,is_published,campaign_type,created_at'
 export const WISH_COLUMNS = 'id,page_id,sender_name,message,gift_type,media_url,media_type,is_approved,created_at'
