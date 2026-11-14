@@ -17,7 +17,7 @@ import { clearDraft, loadDraft, saveDraft } from '../lib/draft'
 import { hasOpened, markOpened, wishUnwrapped } from '../lib/opened'
 import { WishItem } from '../pages/PublicPage'
 import { themeOf } from '../lib/themes'
-import { giftOptionsFor, isCampaignActive } from '../lib/campaigns'
+import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days } from '../lib/campaigns'
 
 afterEach(() => { cleanup(); vi.useRealTimers(); localStorage.clear(); sessionStorage.clear() })
 
@@ -32,19 +32,45 @@ describe('themes', () => {
 describe('seasonal campaigns', () => {
   it('activates recurring campaign dates in Philippine time', () => {
     const christmas = {
-      is_enabled: true, start_month: 11, start_day: 1, end_month: 12, end_day: 31,
+      is_enabled: true, start_month: 11, start_day: 25, end_month: 12, end_day: 25,
     }
-    expect(isCampaignActive(christmas, new Date('2026-10-31T23:59:00+08:00'))).toBe(false)
-    expect(isCampaignActive(christmas, new Date('2026-11-01T00:00:00+08:00'))).toBe(true)
+    expect(isCampaignActive(christmas, new Date('2026-11-24T23:59:00+08:00'))).toBe(false)
+    expect(isCampaignActive(christmas, new Date('2026-11-25T00:00:00+08:00'))).toBe(true)
+    expect(isCampaignActive(christmas, new Date('2026-12-26T00:00:00+08:00'))).toBe(false)
     expect(isCampaignActive({ ...christmas, is_enabled: false }, new Date('2026-12-01T12:00:00+08:00'))).toBe(false)
   })
 
   it('handles a campaign that spans New Year', () => {
     const holiday = {
-      is_enabled: true, start_month: 12, start_day: 24, end_month: 1, end_day: 5,
+      is_enabled: true, start_month: 12, start_day: 2, end_month: 1, end_day: 1,
     }
-    expect(isCampaignActive(holiday, new Date('2027-01-05T23:59:00+08:00'))).toBe(true)
-    expect(isCampaignActive(holiday, new Date('2027-01-06T00:00:00+08:00'))).toBe(false)
+    expect(isCampaignActive(holiday, new Date('2026-12-01T23:59:00+08:00'))).toBe(false)
+    expect(isCampaignActive(holiday, new Date('2026-12-02T00:00:00+08:00'))).toBe(true)
+    expect(isCampaignActive(holiday, new Date('2027-01-01T23:59:00+08:00'))).toBe(true)
+    expect(isCampaignActive(holiday, new Date('2027-01-02T00:00:00+08:00'))).toBe(false)
+  })
+
+  it('accepts event dates from today through 30 days ahead in Philippine time', () => {
+    const today = new Date('2026-11-25T00:00:00+08:00')
+    expect(isEventDateWithin30Days('2026-11-25', today)).toBe(true)
+    expect(isEventDateWithin30Days('2026-12-25', today)).toBe(true)
+    expect(isEventDateWithin30Days('2026-12-26', today)).toBe(false)
+    expect(isEventDateWithin30Days('2026-11-24', today)).toBe(false)
+    expect(isEventDateWithin30Days('2026-02-30', today)).toBe(false)
+  })
+
+  it('allows future personal anniversaries outside the fixed-event window', () => {
+    const today = new Date('2026-11-25T00:00:00+08:00')
+    expect(isEventDateNotPast('2027-02-14', today)).toBe(true)
+    expect(isEventDateNotPast('2026-11-24', today)).toBe(false)
+  })
+
+  it('hides a campaign after its final event date', () => {
+    const halloween = {
+      is_enabled: true, start_month: 10, start_day: 1, end_month: 10, end_day: 31,
+    }
+    expect(isCampaignActive(halloween, new Date('2026-10-31T23:59:00+08:00'))).toBe(true)
+    expect(isCampaignActive(halloween, new Date('2026-11-01T00:00:00+08:00'))).toBe(false)
   })
 
   it('limits event gift choices to configured catalog items', () => {

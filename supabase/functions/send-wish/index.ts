@@ -46,9 +46,12 @@ Deno.serve(async (req) => {
     const slug = clean(form.get("slug"), 80);
     const { data: page } = await sb
       .from("pages")
-      .select("id, owner_name, auto_approve_wishes, gcash_number, is_published, campaign_type")
+      .select("id, owner_name, auto_approve_wishes, gcash_number, is_published, campaign_type, opens_at")
       .eq("slug", slug).eq("is_published", true).maybeSingle();
     if (!page) return json({ error: "Page not found." }, 404);
+    if (page.opens_at && new Date(page.opens_at).getTime() > Date.now()) {
+      return json({ error: "This special-event letter is not open yet." }, 403);
+    }
 
     const senderName = clean(form.get("senderName"), 60) || "Anonymous";
 

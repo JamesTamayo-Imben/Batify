@@ -26,6 +26,24 @@ function campaignIsActive(campaign: {
     : today >= start || today <= end);
 }
 
+function manilaTodayOrdinal(): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(new Date());
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+  return Date.UTC(year, month - 1, day) / (24 * 60 * 60 * 1000);
+}
+
+function eventDateOrdinal(value: string): number {
+  const [year, month, day] = value.split("-").map(Number);
+  return Date.UTC(year, month - 1, day) / (24 * 60 * 60 * 1000);
+}
+
 Deno.serve(async (req) => {
   const pre = preflight(req);
   if (pre) return pre;
@@ -71,8 +89,16 @@ Deno.serve(async (req) => {
     const sb = serviceClient();
     const campaignType = clean(body.campaignType, 24);
     if (campaignType) {
-      if (!["christmas", "valentines", "anniversary"].includes(campaignType)) {
+      if (!["christmas", "halloween", "valentines", "new_year", "anniversary"].includes(campaignType)) {
         return json({ error: "Unknown seasonal campaign." }, 400);
+      }
+      const daysUntilEvent = eventDateOrdinal(body.birthdayDate) - manilaTodayOrdinal();
+      if (daysUntilEvent < 0 || (campaignType !== "anniversary" && daysUntilEvent > 30)) {
+        return json({
+          error: campaignType === "anniversary"
+            ? "Choose an anniversary date that has not passed."
+            : "Choose an event date within the next 30 days.",
+        }, 400);
       }
       const { data: campaign, error: campaignError } = await sb
         .from("campaign_events").select("*").eq("id", campaignType).maybeSingle();
@@ -86,6 +112,9 @@ Deno.serve(async (req) => {
     }
 
     const base = slugify(ownerName);
+    const opensAt = campaignType
+      ? new Date(`${body.birthdayDate}T00:00:00+08:00`).toISOString()
+      : null;
     for (let attempt = 0; attempt < 5; attempt++) {
       const slug = `${base}-${randomString(4)}`;
       const editToken = randomString(32);
@@ -96,6 +125,7 @@ Deno.serve(async (req) => {
         title,
         letter,
         birthday_date: body.birthdayDate,
+        opens_at: opensAt,
         campaign_type: campaignType || null,
         reveal_at: revealAt,
         gcash_number: gcash,

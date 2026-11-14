@@ -171,7 +171,29 @@ function Sent({ gift, text, onAgain }) {
   )
 }
 
+function ScheduledLetter({ opensAt }) {
+  const openDate = new Intl.DateTimeFormat('en-PH', {
+    timeZone: 'Asia/Manila',
+    dateStyle: 'long',
+    timeStyle: 'short',
+  }).format(new Date(opensAt))
+  return (
+    <div data-theme="confetti" className="grid min-h-dvh place-items-center bg-ground px-4 py-12 text-center">
+      <main className="w-full max-w-xl">
+        <Envelope3D step={0} initial="B" still size="min(70vw, 280px)">
+          <div className="t">A letter for you</div><div className="s">Sealed until the event</div>
+        </Envelope3D>
+        <h1 className="mt-10 text-4xl sm:text-5xl">A letter is waiting</h1>
+        <p className="mx-auto mt-3 max-w-md text-lg">This special-event letter opens automatically on {openDate} Philippine time.</p>
+        <div className="mt-7"><FlipCountdown target={opensAt} onDone={() => window.location.reload()} /></div>
+        <Link to="/" className="btn-ghost mt-7">Back to Batify</Link>
+      </main>
+    </div>
+  )
+}
+
 function SendWishForm({ page, revealed, giftOptions }) {
+  const occasion = occasionOf(page.campaign_type)
   const [name, setName] = useState('')
   const [message, setMessage] = useState('')
   const [gift, setGift] = useState(() => Object.keys(giftOptions || {})[0] || 'flower')
@@ -234,12 +256,12 @@ function SendWishForm({ page, revealed, giftOptions }) {
       </div>
       <div>
         <label className="label" htmlFor="message">3. Your wish <span className="font-normal text-muted">(optional)</span></label>
-        <textarea id="message" className="field min-h-[120px] font-letter text-lg" maxLength={1000} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={`${page.campaign_type === 'christmas' ? 'Merry Christmas' : page.campaign_type === 'valentines' ? 'Happy Valentine’s Day' : page.campaign_type === 'anniversary' ? 'Happy anniversary' : 'Happy birthday'}, ${page.owner_name.split(' ')[0]}!`} aria-describedby="msg-hint" />
+        <textarea id="message" className="field min-h-[120px] font-letter text-lg" maxLength={1000} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={`${occasion?.greeting || 'Happy birthday'}, ${page.owner_name.split(' ')[0]}!`} aria-describedby="msg-hint" />
         <p id="msg-hint" className="hint">Links are removed from wishes.</p>
       </div>
       <Turnstile ref={ts} onToken={setToken} onError={setError} />
       {error && <p role="alert" className="rounded-lg border-2 border-flag bg-red-50 p-3 text-sm font-semibold text-flag">{error}</p>}
-      <button type="submit" className="btn-primary w-full py-3.5 text-lg" disabled={busy || !token}>{busy ? (gift === 'media' ? 'Uploading...' : 'Sending...') : page.campaign_type === 'christmas' ? 'Send pamasko' : 'Send wish'}</button>
+      <button type="submit" className="btn-primary w-full py-3.5 text-lg" disabled={busy || !token}>{busy ? (gift === 'media' ? 'Uploading...' : 'Sending...') : occasion?.wishButton || 'Send wish'}</button>
     </form>
   )
 }
@@ -315,6 +337,7 @@ export default function PublicPage() {
   const { slug } = useParams()
   const [status, setStatus] = useState('loading')
   const [page, setPage] = useState(null)
+  const [opensAt, setOpensAt] = useState(null)
   const [campaign, setCampaign] = useState(null)
   const [campaignError, setCampaignError] = useState('')
   const [revealed, setRevealed] = useState(false)
@@ -326,26 +349,49 @@ export default function PublicPage() {
   const [bulkCommand, setBulkCommand] = useState({ action: null, token: 0 })
   const loaded = useRef(false)
 
-  useTitle(page ? `${page.title} - Batify` : 'Batify')
+  useTitle(page ? `${page.title} - Batify` : opensAt ? 'A letter is waiting - Batify' : 'Batify')
 
   useEffect(() => {
     let dead = false
     setStatus('loading'); setPage(null); setWishes([]); loaded.current = false
-    setCampaign(null); setCampaignError('')
-    sb.from('pages').select(PAGE_COLUMNS).eq('slug', slug).maybeSingle().then(({ data, error }) => {
-      if (dead) return
-      if (error) return setStatus('error')
-      if (!data) return setStatus('missing')
-      setPage(data); setRevealed(isRevealed(data)); setCeremony(!hasOpened(data.slug)); setStatus('ready')
-      if (data.campaign_type) {
-        sb.from('campaign_events').select(CAMPAIGN_COLUMNS).eq('id', data.campaign_type).maybeSingle()
+    setOpensAt(null); setCampaign(null); setCampaignError('')
+    function showPage(openedPage) {
+      setPage(openedPage)
+      setRevealed(isRevealed(openedPage))
+      setCeremony(!hasOpened(openedPage.slug))
+      setStatus('ready')
+      if (openedPage.campaign_type) {
+        sb.from('campaign_events').select(CAMPAIGN_COLUMNS).eq('id', openedPage.campaign_type).maybeSingle()
           .then(({ data: event, error: eventError }) => {
             if (dead) return
             if (eventError) setCampaignError('Some event gift labels could not be loaded.')
             else setCampaign(event)
           })
       }
-    })
+    }
+    async function loadPage() {
+      const { data, error } = await sb.from('pages').select(PAGE_COLUMNS).eq('slug', slug).maybeSingle()
+      if (dead) return
+      if (error) { setStatus('error'); return }
+      if (!data) {
+        const { data: scheduledAt, error: scheduleError } = await sb.rpc('page_opens_at', { p_slug: slug })
+        if (dead) return
+        if (scheduleError) { setStatus('error'); return }
+        if (scheduledAt) {
+          setOpensAt(scheduledAt)
+          setStatus('scheduled')
+          return
+        }
+        const { data: newlyOpen, error: retryError } = await sb.from('pages').select(PAGE_COLUMNS).eq('slug', slug).maybeSingle()
+        if (dead) return
+        if (retryError) { setStatus('error'); return }
+        if (!newlyOpen) { setStatus('missing'); return }
+        showPage(newlyOpen)
+        return
+      }
+      showPage(data)
+    }
+    loadPage()
     return () => { dead = true }
   }, [slug])
 
@@ -383,6 +429,7 @@ export default function PublicPage() {
       </div>
     )
   }
+  if (status === 'scheduled') return <ScheduledLetter opensAt={opensAt} />
   if (status === 'missing') return <NotFound message="This birthday page doesn't exist or isn't published." />
   if (status === 'error') return <NotFound message="We couldn't load this page. Please try again." />
 

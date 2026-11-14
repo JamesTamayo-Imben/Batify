@@ -7,9 +7,9 @@ import Turnstile from '../components/Turnstile'
 import { postJSON } from '../lib/ajax'
 import { SLOTS } from '../lib/ads'
 import { fireConfetti } from '../lib/confetti'
-import { fromLocalInput } from '../lib/dates'
+import { formatDate, fromLocalInput } from '../lib/dates'
 import { clearDraft, loadDraft, saveDraft } from '../lib/draft'
-import { CAMPAIGN_COLUMNS, isCampaignActive, occasionOf } from '../lib/campaigns'
+import { CAMPAIGN_COLUMNS, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, occasionOf } from '../lib/campaigns'
 import { error as buzzError, success, tap } from '../lib/haptics'
 import { rememberPage } from '../lib/mypages'
 import { copyText, shareLink } from '../lib/share'
@@ -34,7 +34,7 @@ function Field({ id, label, hint, error, optional, children }) {
 }
 
 /* --------------------------------------------------------------- result screen */
-function LinkCard({ title, url, tone, warning, actions }) {
+function LinkCard({ title, url, tone, warning, hint, actions }) {
   const [copied, setCopied] = useState(false)
   async function copy() { if (await copyText(url)) { setCopied(true); setTimeout(() => setCopied(false), 1800) } }
   return (
@@ -42,6 +42,7 @@ function LinkCard({ title, url, tone, warning, actions }) {
       <h2 className="text-2xl">{title}</h2>
       {warning && <p role="note" className="mt-2 flex gap-2 rounded-lg bg-ink p-3 text-sm font-semibold text-white"><Icon name="alert" size={18} className="mt-0.5" />{warning}</p>}
       <input readOnly value={url} onFocus={(e) => e.target.select()} className="field mt-3" aria-label={title} />
+      {hint && <p className="mt-2 text-sm text-muted">{hint}</p>}
       <div className="mt-3 flex flex-wrap gap-2">
         <button className="btn-primary" onClick={copy}><Icon name={copied ? 'check' : 'copy'} size={18} />{copied ? 'Copied' : 'Copy link'}</button>
         {actions}
@@ -80,7 +81,8 @@ function Result({ result, f, campaign }) {
       </section>
 
       <div className="page-wrap space-y-5">
-        <LinkCard title="Public link" url={publicUrl} actions={
+        <LinkCard title="Public link" url={publicUrl}
+          hint={campaign ? `Your letter opens automatically on ${formatDate(f.birthdayDate)} at midnight Philippine time.` : undefined} actions={
           <>
             <button className="btn-ghost" onClick={async () => { const r = await shareLink({ title: f.title, text: shareText, url: publicUrl }); if (r === 'copied') setShareMsg('Link copied to clipboard.') }}><Icon name="share" size={18} />Share</button>
             <a className="btn-ghost" href={wa} target="_blank" rel="noreferrer noopener"><Icon name="chat" size={18} />WhatsApp</a>
@@ -168,6 +170,13 @@ export default function Create() {
       if (!f.ownerName.trim()) e.ownerName = 'Add your name so friends know whose letter this is.'
       if (!f.title.trim()) e.title = 'Give the page a title, like "Maria turns 25".'
       if (!f.birthdayDate) e.birthdayDate = `Pick your ${occasionOf(campaign?.id)?.dateLabel.toLowerCase() || 'birthday'}.`
+      else if (campaign && !(campaign.id === 'anniversary'
+        ? isEventDateNotPast(f.birthdayDate)
+        : isEventDateWithin30Days(f.birthdayDate))) {
+        e.birthdayDate = campaign.id === 'anniversary'
+          ? 'Choose an anniversary date that has not passed.'
+          : 'Choose an event date within the next 30 days.'
+      }
     }
     if (i === 1 && f.letter.trim().length < 10) e.letter = 'Write at least a couple of sentences.'
     if (i === 2) {
@@ -218,13 +227,7 @@ export default function Create() {
 
   const first = f.ownerName.trim().split(/\s+/)[0]
   const occasion = occasionOf(campaign?.id)
-  const starters = occasion?.id === 'christmas'
-    ? ['This Christmas, I wish you', 'Thank you for always', 'My favorite holiday memory is', 'My wish for your year ahead is']
-    : occasion?.id === 'valentines'
-      ? ['I love how you', 'My favorite memory of us is', 'You make every day', 'I am grateful for']
-      : occasion?.id === 'anniversary'
-        ? ['My favorite memory of us is', 'Thank you for another year of', 'I still love when you', 'Here is to many more years of']
-        : STARTERS
+  const starters = occasion?.starters || STARTERS
   const dateLabel = occasion?.dateLabel || 'Birthday'
   return (
     <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-14 lg:py-12">
@@ -250,7 +253,10 @@ export default function Create() {
               <Field id="title" label="Page title" error={errs.title} hint="This is the headline on the envelope.">
                 <input id="title" className="field" maxLength={120} value={f.title} onChange={set('title')} placeholder={campaign?.title || (first ? `${first} turns 25` : 'Maria turns 25')} aria-invalid={!!errs.title} aria-describedby={`title-${errs.title ? 'err' : 'hint'}`} />
               </Field>
-              <Field id="birthdayDate" label={dateLabel} error={errs.birthdayDate}>
+              <Field id="birthdayDate" label={dateLabel} error={errs.birthdayDate}
+                hint={campaign?.id === 'anniversary'
+                    ? 'Your letter stays sealed until this date.'
+                    : campaign ? 'Your letter stays sealed until this date. Choose a date within the next 30 days.' : undefined}>
                 <input id="birthdayDate" type="date" className="field" value={f.birthdayDate} onChange={set('birthdayDate')} aria-invalid={!!errs.birthdayDate} aria-describedby={errs.birthdayDate ? 'birthdayDate-err' : undefined} />
               </Field>
             </>

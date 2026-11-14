@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
 
       case "update-campaign": {
         const campaignId = clean(body.campaignId, 24);
-        if (!["christmas", "valentines", "anniversary"].includes(campaignId)) {
+        if (!["christmas", "halloween", "valentines", "new_year", "anniversary"].includes(campaignId)) {
           return json({ error: "Unknown seasonal campaign." }, 400);
         }
 

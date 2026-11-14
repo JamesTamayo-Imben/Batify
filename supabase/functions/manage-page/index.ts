@@ -94,6 +94,9 @@ Deno.serve(async (req) => {
         if ("birthday_date" in p) {
           if (!isValidDate(p.birthday_date)) return json({ error: "Invalid birthday date." }, 400);
           patch.birthday_date = p.birthday_date;
+          if (page.campaign_type && page.opens_at) {
+            patch.opens_at = new Date(`${p.birthday_date}T00:00:00+08:00`).toISOString();
+          }
         }
         if ("reveal_at" in p) {
           if (!p.reveal_at) patch.reveal_at = null;

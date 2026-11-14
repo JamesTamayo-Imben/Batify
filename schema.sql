@@ -17,13 +17,14 @@ create table if not exists public.pages (
   title               text not null,
   letter              text not null,
   birthday_date       date not null,
+  opens_at            timestamptz,
   theme               text default 'confetti',
   reveal_at           timestamptz,                     -- wishes locked until this time
   auto_approve_wishes boolean default false,
   gcash_number        text,
   gcash_qr_url        text,
   is_published        boolean default true,
-  campaign_type       text check (campaign_type in ('christmas', 'valentines', 'anniversary')),
+  campaign_type       text check (campaign_type in ('christmas', 'halloween', 'valentines', 'new_year', 'anniversary')),
   created_at          timestamptz default now()
 );
 create index if not exists pages_edit_token_idx on public.pages (edit_token);
@@ -69,6 +70,8 @@ create index if not exists reports_wish_idx on public.reports (wish_id);
 -- The anon / authenticated roles can ONLY read published pages + approved wishes.
 -- ---------------------------------------------------------------------------
 
+alter table public.pages add column if not exists opens_at timestamptz;
+
 alter table public.pages         enable row level security;
 alter table public.wishes        enable row level security;
 alter table public.contributions enable row level security;
@@ -77,7 +80,7 @@ alter table public.reports       enable row level security;
 drop policy if exists pages_public_read on public.pages;
 create policy pages_public_read on public.pages
   for select to anon, authenticated
-  using (is_published = true);
+  using (is_published = true and (opens_at is null or opens_at <= now()));
 
 -- Stronger than the bare "is_approved = true" rule: wishes stay hidden at the
 -- API level (not just in the UI) until the page's reveal_at has passed, so the
@@ -91,6 +94,7 @@ create policy wishes_public_read on public.wishes
       select 1 from public.pages p
       where p.id = wishes.page_id
         and p.is_published = true
+      and (p.opens_at is null or p.opens_at <= now())
         and (p.reveal_at is null or p.reveal_at <= now())
     )
   );
@@ -127,10 +131,19 @@ alter table public.pages add column if not exists open_count integer not null de
 
 create or replace function public.increment_open(p_slug text)
 returns void language sql security definer set search_path = public as $$
-  update public.pages set open_count = open_count + 1 where slug = p_slug and is_published;
+  update public.pages set open_count = open_count + 1
+  where slug = p_slug and is_published and (opens_at is null or opens_at <= now());
 $$;
 revoke all on function public.increment_open(text) from public, anon, authenticated;
 grant execute on function public.increment_open(text) to service_role;
+
+create or replace function public.page_opens_at(p_slug text)
+returns timestamptz language sql stable security definer set search_path = public as $$
+  select opens_at from public.pages
+  where slug = p_slug and is_published and opens_at > now();
+$$;
+revoke all on function public.page_opens_at(text) from public, anon, authenticated;
+grant execute on function public.page_opens_at(text) to anon, authenticated;
 
 -- Fixed-window rate limiter shared by every edge function instance. The old
 -- in-memory limiter reset on each cold start and was per-instance.
@@ -183,11 +196,14 @@ end $$;
 
 alter table public.pages
   add column if not exists campaign_type text
-  check (campaign_type in ('christmas', 'valentines', 'anniversary'));
+  check (campaign_type in ('christmas', 'halloween', 'valentines', 'new_year', 'anniversary'));
+alter table public.pages drop constraint if exists pages_campaign_type_check;
+alter table public.pages add constraint pages_campaign_type_check
+  check (campaign_type in ('christmas', 'halloween', 'valentines', 'new_year', 'anniversary'));
 grant select (campaign_type) on public.pages to anon, authenticated;
 
 create table if not exists public.campaign_events (
-  id text primary key check (id in ('christmas', 'valentines', 'anniversary')),
+  id text primary key check (id in ('christmas', 'halloween', 'valentines', 'new_year', 'anniversary')),
   title text not null,
   description text not null,
   is_enabled boolean not null default false,
@@ -198,23 +214,49 @@ create table if not exists public.campaign_events (
   gift_options jsonb not null default '{}'::jsonb check (jsonb_typeof(gift_options) = 'object'),
   updated_at timestamptz not null default now()
 );
+alter table public.campaign_events drop constraint if exists campaign_events_id_check;
+alter table public.campaign_events add constraint campaign_events_id_check
+  check (id in ('christmas', 'halloween', 'valentines', 'new_year', 'anniversary'));
 
 insert into public.campaign_events
   (id, title, description, is_enabled, start_month, start_day, end_month, end_day, gift_options)
 values
   ('christmas', 'Christmas Pamasko',
    'Make a gift link for your ninongs and ninangs to send their pamasko.',
-   true, 11, 1, 12, 31,
+   true, 11, 25, 12, 25,
    '{"flower":"Holiday flowers","teddy":"Christmas teddy","chocolate":"Christmas treats","media":"Photo or video"}'),
+  ('halloween', 'Halloween Treats',
+   'Share a Halloween letter and let friends send a little treat.',
+   true, 10, 1, 10, 31,
+   '{"flower":"Autumn flowers","teddy":"Spooky teddy","chocolate":"Halloween treats","media":"Photo or video"}'),
   ('valentines', 'Valentine''s Day',
    'Share a love note and let someone send a little surprise.',
-   true, 2, 1, 2, 14,
+   true, 1, 15, 2, 14,
    '{"flower":"Roses","teddy":"Loveable teddy","chocolate":"Sweet treats","media":"Photo or video"}'),
+  ('new_year', 'New Year Wishes',
+   'Send a New Year letter and start the year with wishes and gifts.',
+   true, 12, 2, 1, 1,
+   '{"flower":"New Year flowers","teddy":"New Year teddy","chocolate":"New Year treats","media":"Photo or video"}'),
   ('anniversary', 'Anniversary',
    'Celebrate your anniversary with a link for wishes and gifts.',
    true, 1, 1, 12, 31,
    '{"flower":"Anniversary flowers","teddy":"Keepsake teddy","chocolate":"Sweet treats","media":"Photo or video"}')
 on conflict (id) do nothing;
+
+update public.campaign_events
+set start_month = 11, start_day = 25, end_month = 12, end_day = 25, updated_at = now()
+where id = 'christmas'
+  and start_month = 11 and start_day = 1 and end_month = 12 and end_day in (25, 31);
+
+update public.campaign_events
+set start_month = 1, start_day = 15, updated_at = now()
+where id = 'valentines'
+  and start_month = 2 and start_day = 1 and end_month = 2 and end_day = 14;
+
+update public.campaign_events
+set start_month = 12, start_day = 2, updated_at = now()
+where id = 'new_year'
+  and start_month = 12 and start_day = 26 and end_month = 1 and end_day = 1;
 
 alter table public.campaign_events enable row level security;
 revoke all on public.campaign_events from anon, authenticated;

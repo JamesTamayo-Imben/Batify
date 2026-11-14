@@ -128,7 +128,7 @@ function CampaignEditor({ campaign, busy, onSave }) {
 export default function CampaignSettings({ campaigns, busy, onSave }) {
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted">Enabled campaigns appear automatically during their date window. New pages are blocked outside the window; existing links keep working.</p>
+      <p className="text-sm text-muted">Enabled campaigns appear during their date window. Set fixed-date events to start 30 days ahead; Anniversary stays available year-round. Seasonal letters stay sealed until their event date.</p>
       {campaigns.map((campaign) => (
         <CampaignEditor key={campaign.id} campaign={campaign} busy={busy} onSave={onSave} />
       ))}

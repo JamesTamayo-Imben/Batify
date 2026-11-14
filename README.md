@@ -40,8 +40,10 @@ credential.
   wrap/unwrap controls.
 - Optional reveal scheduling, wish moderation, photo/video gifts, GCash details,
   and QR-code sharing.
-- Seasonal Christmas pamasko, Valentine's Day, and anniversary gift links with
-  recurring campaign schedules and admin-managed suggested gifts.
+- Christmas, Halloween, Valentine's Day, and New Year links become available
+  during the 30-day lead-in and open on the event date. Anniversary links remain
+  available year-round; all new special-event letters stay sealed until their
+  chosen date.
 - A lightweight owner dashboard for page activity and wish management.
 - A progressive web app with reduced-motion support and accessible controls.
 
@@ -68,9 +70,10 @@ Edit `.env.local` and provide the values described in
 
 ### Configure Supabase
 
-1. In the Supabase SQL Editor, run [`schema.sql`](schema.sql). It creates the
-   application tables, row-level security policies, column grants, storage
-   buckets, supporting functions, and the seasonal campaign configuration.
+1. In the Supabase SQL Editor, run or re-run [`schema.sql`](schema.sql). It
+   creates and updates the application tables, row-level security policies,
+   column grants, storage buckets, supporting functions, and seasonal campaign
+   configuration.
 2. In the Supabase project, allow the app's production hostname in the settings
    required by your project and ensure the required tables are available through
    the API.
