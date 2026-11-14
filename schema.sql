@@ -19,7 +19,7 @@ create table if not exists public.pages (
   birthday_date       date not null,
   expires_at          timestamptz,
   opens_at            timestamptz,
-  theme               text default 'confetti',
+  theme               text default 'confetti',            -- preset id or a custom #RRGGBB color
   reveal_at           timestamptz,                     -- wishes locked until this time
   auto_approve_wishes boolean default false,
   gcash_number        text,

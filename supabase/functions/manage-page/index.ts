@@ -6,7 +6,7 @@
 // we do not CAPTCHA the owner's dashboard; we rate-limit per IP instead.
 import {
   checkUpload, clean, clientIp, EXT, isValidDate, json, MEDIA_MAX, normalizeGcash,
-  parseTimestamp, preflight, rateLimitDurable, serviceClient, storagePathFromUrl, THEMES,
+  isValidTheme, parseTimestamp, preflight, rateLimitDurable, serviceClient, storagePathFromUrl,
 } from "../_shared/common.ts";
 
 Deno.serve(async (req) => {
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
         if ("auto_approve_wishes" in p) patch.auto_approve_wishes = p.auto_approve_wishes === true;
         if ("is_published" in p) patch.is_published = p.is_published === true;
         if ("theme" in p) {
-          if (typeof p.theme !== "string" || !THEMES.includes(p.theme)) return json({ error: "Invalid theme." }, 400);
+          if (!isValidTheme(p.theme)) return json({ error: "Invalid theme." }, 400);
           patch.theme = p.theme;
         }
         if ("gcash_number" in p) {

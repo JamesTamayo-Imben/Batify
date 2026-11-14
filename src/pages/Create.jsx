@@ -15,7 +15,8 @@ import { rememberPage } from '../lib/mypages'
 import { copyText, shareLink } from '../lib/share'
 import { qrPng, qrSvg } from '../lib/qr'
 import { sb } from '../lib/supabase'
-import { THEMES } from '../lib/themes'
+import ThemePicker from '../components/ThemePicker'
+import { themeOf, themeStyleOf } from '../lib/themes'
 import useTitle from '../lib/useTitle'
 
 const STEPS = ['About you', 'Your letter', 'The surprise', 'Seal it']
@@ -72,7 +73,7 @@ function Result({ result, f, campaign }) {
 
   return (
     <div>
-      <section data-theme={f.theme} className="border-b-2 border-ink bg-ground px-4 pb-16 pt-20 text-center">
+      <section data-theme={themeOf(f.theme)} style={themeStyleOf(f.theme)} className="border-b-2 border-ink bg-ground px-4 pb-16 pt-20 text-center">
         <Envelope3D step={env.step} initial={(f.ownerName.trim()[0] || 'B').toUpperCase()} still size="min(74vw, 340px)">
           <div className="t">{f.title}</div><div className="s">With love, {f.ownerName}</div><div className="lines" />
         </Envelope3D>
@@ -281,16 +282,7 @@ export default function Create() {
             <>
               <fieldset>
                 <legend className="label">Envelope colors</legend>
-                <div className="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Envelope colors">
-                  {Object.entries(THEMES).map(([id, t]) => (
-                    <button key={id} type="button" role="radio" aria-checked={f.theme === id} onClick={() => { tap(); setF((p) => ({ ...p, theme: id })) }}
-                      className={`flex min-h-[64px] items-center gap-3 rounded-xl border-2 border-ink p-3 text-left ${f.theme === id ? 'bg-sun shadow-sticker' : 'bg-white'}`}>
-                      <span className="flex -space-x-2" aria-hidden="true">{t.swatch.map((c) => <span key={c} className="h-8 w-8 rounded-full border-2 border-ink" style={{ background: c }} />)}</span>
-                      <span><span className="block font-bold">{t.label}</span></span>
-                      {f.theme === id && <Icon name="check" className="ml-auto" strokeWidth={3} />}
-                    </button>
-                  ))}
-                </div>
+                <ThemePicker value={f.theme} onChange={(theme) => setF((p) => ({ ...p, theme }))} idPrefix="create-theme" />
               </fieldset>
               <Field id="revealAt" label="Reveal wishes at" optional hint="Wishes stay hidden behind a countdown until this time. Leave it empty to show them right away.">
                 <input id="revealAt" type="datetime-local" className="field" value={f.revealAt} onChange={set('revealAt')} aria-describedby="revealAt-hint" />
@@ -327,7 +319,7 @@ export default function Create() {
       </div>
 
       <aside aria-label="Envelope preview" className="lg:sticky lg:top-24 lg:self-start">
-        <div data-theme={f.theme} className="grid place-items-center overflow-hidden rounded-3xl border-2 border-ink bg-ground px-4 pb-14 pt-24">
+        <div data-theme={themeOf(f.theme)} style={themeStyleOf(f.theme)} className="grid place-items-center overflow-hidden rounded-3xl border-2 border-ink bg-ground px-4 pb-14 pt-24">
           <Envelope3D step={env.step} initial={(f.ownerName.trim()[0] || 'B').toUpperCase()} size="min(70vw, 320px)" still={wiz === 1}>
             <div className="t">{f.title || 'Your title'}</div>
             {env.step >= 3 ? <p className="body" style={{ display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{f.letter || 'Your letter appears here as you write it.'}</p> : <div className="s">With love, {f.ownerName || 'you'}</div>}

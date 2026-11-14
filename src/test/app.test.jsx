@@ -8,21 +8,23 @@ vi.mock('../lib/confetti', async (importOriginal) => ({
   fireConfetti: vi.fn(),
 }))
 vi.mock('../lib/ajax', () => ({ postJSON: vi.fn() }))
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { postJSON } from '../lib/ajax'
 import Envelope3D, { useEnvelope } from '../components/Envelope3D'
 import FlipCountdown from '../components/FlipCountdown'
 import GiftBox3D from '../components/GiftBox3D'
 import GiftPicker from '../components/GiftPicker'
+import ThemePicker from '../components/ThemePicker'
 import CampaignSettings from '../components/CampaignEditor'
 import Turnstile from '../components/Turnstile'
 import AboutDeveloper from '../pages/AboutDeveloper'
 import Admin from '../pages/Admin'
 import Contact from '../pages/Contact'
+import EditPage from '../pages/EditPage'
 import { clearDraft, loadDraft, saveDraft } from '../lib/draft'
 import { hasOpened, markOpened, wishUnwrapped } from '../lib/opened'
 import { WishItem } from '../pages/PublicPage'
-import { themeOf } from '../lib/themes'
+import { DEFAULT_CUSTOM_COLOR, themeOf, themeStyleOf } from '../lib/themes'
 import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days } from '../lib/campaigns'
 import { isPageExpired } from '../lib/pages'
 
@@ -32,7 +34,50 @@ describe('themes', () => {
   it('keeps database ids and falls back safely', () => {
     expect(themeOf('lavender')).toBe('lavender')
     expect(themeOf('nope')).toBe('confetti')
+    expect(themeOf('__proto__')).toBe('confetti')
     expect(themeOf(undefined)).toBe('confetti')
+    expect(themeOf('rosas')).toBe('rosas')
+  })
+
+  it('derives custom palettes with readable text contrast', () => {
+    const luminance = (rgb) => {
+      const channels = rgb.map((value) => {
+        const channel = value / 255
+        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+      })
+      return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+    }
+    const contrast = (a, b) => {
+      const first = luminance(a)
+      const second = luminance(b)
+      return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05)
+    }
+
+    for (const color of ['#FFFFFF', '#FFFF00', '#00A8E8', '#2014AA']) {
+      const palette = themeStyleOf(color)
+      const ground = palette['--ground'].split(' ').map(Number)
+      const accent = palette['--accent'].split(' ').map(Number)
+      expect(themeOf(color)).toBe('custom')
+      expect(contrast([20, 20, 43], ground)).toBeGreaterThanOrEqual(4.5)
+      expect(contrast([255, 255, 255], accent)).toBeGreaterThanOrEqual(4.5)
+    }
+    expect(themeStyleOf('#123')).toBeUndefined()
+  })
+
+  it('lets a page owner select presets or a personalized color', () => {
+    const onChange = vi.fn()
+    function StatefulPicker() {
+      const [theme, setTheme] = useState('confetti')
+      return <ThemePicker value={theme} onChange={(nextTheme) => { onChange(nextTheme); setTheme(nextTheme) }} idPrefix="theme-test" />
+    }
+    render(<StatefulPicker />)
+
+    expect(screen.getByRole('radio', { name: /Alon/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: /Personalized/ }))
+    expect(onChange).toHaveBeenLastCalledWith(DEFAULT_CUSTOM_COLOR)
+
+    fireEvent.change(screen.getByLabelText('Choose a custom theme color'), { target: { value: '#1478c8' } })
+    expect(onChange).toHaveBeenLastCalledWith('#1478C8')
   })
 })
 
@@ -154,6 +199,49 @@ describe('public information pages', () => {
     render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Contact /></MemoryRouter>)
     const emailLink = screen.getByRole('link', { name: 'Email Jimz' })
     expect(emailLink.getAttribute('href')).toBe('mailto:jamesttamayo0604@gmail.com?subject=A%20note%20about%20Batify')
+  })
+})
+
+describe('edit page settings', () => {
+  async function openSettings(expiresAt) {
+    vi.mocked(postJSON).mockResolvedValue({
+      page: {
+        slug: 'sample',
+        owner_name: 'Maria',
+        title: 'Birthday letter',
+        letter: 'With love',
+        birthday_date: '2099-01-02',
+        reveal_at: null,
+        gcash_number: null,
+        gcash_qr_url: null,
+        theme: 'confetti',
+        auto_approve_wishes: false,
+        is_published: false,
+        expires_at: expiresAt,
+        campaign_type: null,
+      },
+      wishes: [],
+      contributions: [],
+    })
+    render(
+      <MemoryRouter initialEntries={['/edit/test-token']}>
+        <Routes><Route path="/edit/:token" element={<EditPage />} /></Routes>
+      </MemoryRouter>,
+    )
+    fireEvent.click(await screen.findByRole('tab', { name: 'Settings' }))
+    return screen.findByRole('switch', { name: /Page is published/ })
+  }
+
+  it('renders settings for a page that has not expired', async () => {
+    const publishedToggle = await openSettings('2099-12-31T00:00:00.000Z')
+    expect(publishedToggle.disabled).toBe(false)
+    expect(screen.getByText('Turn off to hide your page from everyone.')).toBeTruthy()
+  })
+
+  it('keeps expired unpublished pages from being republished', async () => {
+    const publishedToggle = await openSettings('2020-01-01T00:00:00.000Z')
+    expect(publishedToggle.disabled).toBe(true)
+    expect(screen.getByText('This page has expired. Update its date to calculate a new expiry.')).toBeTruthy()
   })
 })
 

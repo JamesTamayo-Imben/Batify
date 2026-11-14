@@ -23,7 +23,7 @@ import { error as buzzError, success, tap } from '../lib/haptics'
 import { clearUnwrapped, hasOpened, markOpened, markUnwrapped, wishUnwrapped } from '../lib/opened'
 import { copyText, shareLink } from '../lib/share'
 import { sb, PAGE_COLUMNS, WISH_COLUMNS } from '../lib/supabase'
-import { themeOf } from '../lib/themes'
+import { themeOf, themeStyleOf } from '../lib/themes'
 import useTitle from '../lib/useTitle'
 
 const isRevealed = (page) => !page.reveal_at || new Date(page.reveal_at).getTime() <= Date.now()
@@ -455,7 +455,7 @@ export default function PublicPage() {
   const occasion = occasionOf(page.campaign_type)
   const giftOptions = page.campaign_type ? giftOptionsFor(campaign || { id: page.campaign_type }) : null
   return (
-    <div data-theme={themeOf(page.theme)} className="min-h-dvh bg-paper">
+    <div data-theme={themeOf(page.theme)} style={themeStyleOf(page.theme)} className="min-h-dvh bg-paper">
       {ceremony && <Ceremony page={page} onFinish={finishCeremony} />}
 
       <header className="relative overflow-hidden border-b-2 border-ink bg-ground px-4 pb-24 pt-28 text-center">

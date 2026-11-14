@@ -1,7 +1,7 @@
 // create-page — creates a birthday page and returns { slug, editToken }.
 import {
   clean, clientIp, isValidDate, json, normalizeGcash, parseTimestamp,
-  preflight, randomString, rateLimitDurable, serviceClient, slugify, THEMES, verifyTurnstile,
+  isValidTheme, preflight, randomString, rateLimitDurable, serviceClient, slugify, verifyTurnstile,
 } from "../_shared/common.ts";
 
 function campaignIsActive(campaign: {
@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
       if (!gcash) return json({ error: "GCash number must be a PH mobile number (e.g. 09171234567)." }, 400);
     }
 
-    const theme = typeof body.theme === "string" && THEMES.includes(body.theme) ? body.theme : "confetti";
+    const theme = isValidTheme(body.theme) ? body.theme : "confetti";
 
     // 3-5. Slug + token, insert (retry on slug collision)
     const sb = serviceClient();

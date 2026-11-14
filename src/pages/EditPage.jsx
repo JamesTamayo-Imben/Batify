@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { LogoMark } from '../components/Logo'
+import ThemePicker from '../components/ThemePicker'
 import { postForm, postJSON } from '../lib/ajax'
 import { formatDate, formatDateTime, fromLocalInput, peso, toLocalInput } from '../lib/dates'
 import { validateImage } from '../lib/files'
@@ -13,7 +14,6 @@ import { copyText, shareLink } from '../lib/share'
 import { rememberPage } from '../lib/mypages'
 import { CAMPAIGN_COLUMNS, giftOptionsFor, occasionOf } from '../lib/campaigns'
 import { sb } from '../lib/supabase'
-import { THEMES } from '../lib/themes'
 import { isPageExpired } from '../lib/pages'
 import useTitle from '../lib/useTitle'
 
@@ -240,7 +240,7 @@ export default function EditPage() {
       )}
 
       {tab === 'gcash' && <GcashTab data={data} setData={setData} run={run} call={call} busy={busy} />}
-      {tab === 'settings' && <SettingsTab page={page} setData={setData} run={run} call={call} busy={busy} token={token} dateLabel={occasion?.dateLabel || 'Birthday'} />}
+      {tab === 'settings' && <SettingsTab page={page} setData={setData} run={run} call={call} busy={busy} token={token} expired={expired} dateLabel={occasion?.dateLabel || 'Birthday'} />}
     </div>
   )
 }
@@ -308,7 +308,7 @@ function GcashTab({ data, setData, run, call, busy }) {
 }
 
 /* ------------------------------------------------------------- Settings tab */
-function SettingsTab({ page, setData, run, call, busy, token, dateLabel }) {
+function SettingsTab({ page, setData, run, call, busy, token, expired, dateLabel }) {
   const [f, setF] = useState({
     owner_name: page.owner_name,
     title: page.title,
@@ -376,17 +376,10 @@ function SettingsTab({ page, setData, run, call, busy, token, dateLabel }) {
         </div>
       </div>
 
-      <div>
-        <span className="label">Theme</span>
-        <div className="flex flex-wrap gap-2">
-          {Object.entries(THEMES).map(([id, t]) => (
-            <button key={id} type="button" onClick={() => setF((p) => ({ ...p, theme: id }))} aria-pressed={f.theme === id}
-              className={`flex min-h-[44px] items-center gap-2 rounded-xl border-2 px-3 py-2 text-sm font-bold ${f.theme === id ? 'border-ink bg-sun shadow-sticker' : 'border-ink/25 bg-white'}`}>
-              <span className="flex -space-x-1.5" aria-hidden="true">{t.swatch.map((c) => <span key={c} className="h-5 w-5 rounded-full border-2 border-ink" style={{ background: c }} />)}</span>{t.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <fieldset>
+        <legend className="label">Envelope colors</legend>
+        <ThemePicker value={f.theme} onChange={(theme) => setF((p) => ({ ...p, theme }))} idPrefix="settings-theme" />
+      </fieldset>
 
       <div>
         <label className="label" htmlFor="s-gcash">GCash number</label>

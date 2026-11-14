@@ -177,7 +177,12 @@ export function normalizeGcash(v: unknown): string | null {
   return /^(09|\+639|639)\d{9}$/.test(s) ? s : null;
 }
 
-export const THEMES = ["confetti", "lavender", "sky"];
+export const THEMES = ["confetti", "lavender", "sky", "rosas", "hapon", "dahon", "alon"];
+
+export function isValidTheme(value: unknown): value is string {
+  return typeof value === "string" &&
+    (THEMES.includes(value) || /^#[0-9a-f]{6}$/i.test(value));
+}
 
 // ---------------------------------------------------------------------------
 // Uploads — verify real file type from magic bytes (never trust file.type)

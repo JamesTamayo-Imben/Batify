@@ -33,7 +33,7 @@
   --flag-4: #14142B;
 }
 
-/* Page themes. Database ids are kept (confetti, lavender, sky); labels live in lib/themes.js. */
+/* Page themes. Existing ids stay stable; labels live in lib/themes.js. */
 [data-theme='confetti'] { --ground: 247 197 49; --accent: 31 51 199; --accent-deep: 20 34 143; --accent-soft: 232 235 252;
   --env-back: #C9CDF5; --env-side: #E4E7FB; --env-bottom: #F4F5FE; --env-flap: #DDE1FA; --env-liner: #1F33C7; --env-seal: #C92F20; --env-seal-deep: #8E1D12;
   --flag-1: #1F33C7; --flag-2: #C92F20; --flag-3: #FFFFFF; --flag-4: #14142B; }
@@ -43,3 +43,15 @@
 [data-theme='sky'] { --ground: 154 219 208; --accent: 10 85 96; --accent-deep: 6 60 68; --accent-soft: 223 244 241;
   --env-back: #F9D9C9; --env-side: #FCE6DA; --env-bottom: #FEF2EA; --env-flap: #FBDFD0; --env-liner: #0A5560; --env-seal: #C92F20; --env-seal-deep: #8E1D12;
   --flag-1: #0A5560; --flag-2: #F7C531; --flag-3: #C92F20; --flag-4: #FFFFFF; }
+[data-theme='rosas'] { --ground: 245 194 211; --accent: 129 40 74; --accent-deep: 91 24 52; --accent-soft: 252 234 240;
+  --env-back: #F2C2D3; --env-side: #F9E0E9; --env-bottom: #FDF3F6; --env-flap: #F7D2DF; --env-liner: #81284A; --env-seal: #81284A; --env-seal-deep: #5B1834;
+  --flag-1: #81284A; --flag-2: #E0518B; --flag-3: #FFFFFF; --flag-4: #14142B; }
+[data-theme='hapon'] { --ground: 255 197 155; --accent: 140 61 29; --accent-deep: 98 43 20; --accent-soft: 255 240 229;
+  --env-back: #F7C89F; --env-side: #FFE2CC; --env-bottom: #FFF4EB; --env-flap: #FFD8BD; --env-liner: #8C3D1D; --env-seal: #8C3D1D; --env-seal-deep: #622B14;
+  --flag-1: #8C3D1D; --flag-2: #FFC59B; --flag-3: #FFFFFF; --flag-4: #14142B; }
+[data-theme='dahon'] { --ground: 189 231 210; --accent: 34 91 76; --accent-deep: 21 65 53; --accent-soft: 232 247 240;
+  --env-back: #BFE0D0; --env-side: #E0F1E9; --env-bottom: #F2F9F5; --env-flap: #D1EADD; --env-liner: #225B4C; --env-seal: #225B4C; --env-seal-deep: #154135;
+  --flag-1: #225B4C; --flag-2: #E0518B; --flag-3: #FFFFFF; --flag-4: #14142B; }
+[data-theme='alon'] { --ground: 172 214 244; --accent: 23 73 112; --accent-deep: 14 53 82; --accent-soft: 231 243 252;
+  --env-back: #B7D7EF; --env-side: #DDECF8; --env-bottom: #F2F8FC; --env-flap: #CDE3F4; --env-liner: #174970; --env-seal: #174970; --env-seal-deep: #0E3552;
+  --flag-1: #174970; --flag-2: #E0518B; --flag-3: #FFFFFF; --flag-4: #14142B; }
