@@ -412,6 +412,24 @@ export default function PublicPage() {
     return () => { dead = true; sb.removeChannel(channel) }
   }, [page, revealed])
 
+  useEffect(() => {
+    if (!page?.expires_at) return
+    let timer
+    const expire = () => {
+      const remaining = Date.parse(page.expires_at) - Date.now()
+      if (!Number.isFinite(remaining)) return
+      if (remaining <= 0) {
+        setPage(null)
+        setWishes([])
+        setStatus('missing')
+        return
+      }
+      timer = setTimeout(expire, Math.min(remaining, 2147483647))
+    }
+    expire()
+    return () => clearTimeout(timer)
+  }, [page?.expires_at])
+
   const onCountdownDone = useCallback(() => { setRevealed(true); fireConfetti({ x: 0.5, y: 0.5, count: 180 }) }, [])
   const runBulkAction = (action) => setBulkCommand(({ token }) => ({ action, token: token + 1 }))
 

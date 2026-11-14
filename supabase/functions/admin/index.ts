@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
         const description = clean(body.description, 240);
         if (!title || !description) return json({ error: "Campaign title and description are required." }, 400);
 
-        const allowedGifts = ["flower", "teddy", "chocolate", "media"];
+        const allowedGifts = ["flower", "teddy", "chocolate", "cake", "coffee", "book", "balloon", "media"];
         const giftOptions = body.giftOptions;
         if (!giftOptions || typeof giftOptions !== "object" || Array.isArray(giftOptions)) {
           return json({ error: "Choose at least one gift option." }, 400);
@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
       case "list-pages": {
         const q = clean(body.q, 60).replace(/[%,()]/g, "");
         let query = sb.from("pages")
-          .select("id, slug, edit_token, owner_name, title, birthday_date, reveal_at, is_published, created_at, wishes(count)")
+          .select("id, slug, edit_token, owner_name, title, birthday_date, expires_at, reveal_at, is_published, created_at, wishes(count)")
           .order("created_at", { ascending: false }).limit(100);
         if (q) query = query.or(`slug.ilike.%${q}%,owner_name.ilike.%${q}%,title.ilike.%${q}%`);
         const { data, error } = await query;

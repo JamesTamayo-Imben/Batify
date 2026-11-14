@@ -77,7 +77,70 @@ export function PhotoArt() {
   )
 }
 
-const MAP = { flower: FlowerArt, teddy: TeddyArt, chocolate: ChocolateArt, media: PhotoArt }
+export function CakeArt() {
+  return (
+    <svg viewBox="0 0 120 120">
+      <ellipse cx="60" cy="105" rx="39" ry="8" fill="#FFF7DC" {...S} />
+      <path d="M30 60h60v34c0 7-6 12-13 12H43c-7 0-13-5-13-12z" fill="#F2C48D" {...S} />
+      <path d="M30 61c8 0 8 8 15 8s7-8 15-8 8 8 15 8 7-8 15-8V49H30z" fill="#FFF7DC" {...S} />
+      <path d="M40 49V29h9v20M56 49V23h9v26M72 49V29h9v20" fill="#E0518B" {...S} />
+      <path d="M44.5 26c-5-6 5-7 0-13M60.5 20c-5-6 5-7 0-13M76.5 26c-5-6 5-7 0-13" fill="none" stroke="#F7C531" strokeWidth="3" strokeLinecap="round" />
+      <path d="M42 84h36" stroke="#C92F20" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function CoffeeArt() {
+  return (
+    <svg viewBox="0 0 120 120">
+      <path d="M36 29c-8-8 8-10 0-18M60 29c-8-8 8-10 0-18M84 29c-8-8 8-10 0-18" fill="none" stroke="#7A4934" strokeWidth="3" strokeLinecap="round" />
+      <path d="M27 38h58v47c0 10-8 18-18 18H45c-10 0-18-8-18-18z" fill="#FFF7DC" {...S} />
+      <path d="M85 49h8c12 0 12 23 0 23h-8" fill="none" stroke={INK} strokeWidth="5" />
+      <path d="M31 49h50" stroke="#7A4934" strokeWidth="8" strokeLinecap="round" />
+      <path d="M48 69c5-8 17-8 22 0-1 8-7 12-11 13-4-1-10-5-11-13z" fill="#E0518B" />
+      <path d="M60 76v12" stroke="#C92F20" strokeWidth="2" strokeLinecap="round" />
+      <path d="M40 108h36" stroke={INK} strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function BookArt() {
+  return (
+    <svg viewBox="0 0 120 120">
+      <g transform="rotate(-7 60 62)">
+        <rect x="28" y="13" width="64" height="96" rx="5" fill="#1F33C7" {...S} />
+        <path d="M39 14v94" stroke="#F7C531" strokeWidth="4" />
+        <path d="M50 40c7-6 15-6 22 0v30c-7-6-15-6-22 0zM72 40c7-6 15-6 22 0v30c-7-6-15-6-22 0z" fill="#FFF7DC" {...S} strokeWidth="2" />
+        <path d="M58 48h8M58 56h8M80 48h8M80 56h8" stroke="#C92F20" strokeWidth="2" strokeLinecap="round" />
+        <path d="M53 88h38" stroke="#F7C531" strokeWidth="3" strokeLinecap="round" />
+      </g>
+    </svg>
+  )
+}
+
+export function BalloonArt() {
+  return (
+    <svg viewBox="0 0 120 120">
+      <ellipse cx="39" cy="39" rx="20" ry="26" fill="#E0518B" {...S} />
+      <ellipse cx="78" cy="34" rx="19" ry="25" fill="#9B7BEA" {...S} />
+      <ellipse cx="61" cy="66" rx="22" ry="28" fill="#F7C531" {...S} />
+      <path d="M39 65c4 13 13 25 12 43M78 59c-2 17-10 31-13 49M61 94v14" fill="none" stroke={INK} strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M35 64l4 5 4-5M74 58l4 5 4-5M57 93l4 5 4-5" fill="#C92F20" {...S} strokeWidth="1.5" />
+      <path d="M28 31c2-7 6-10 12-12M70 27c2-7 7-10 13-11M52 56c3-8 8-11 14-12" fill="none" stroke="#FFF7DC" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+const MAP = {
+  flower: FlowerArt,
+  teddy: TeddyArt,
+  chocolate: ChocolateArt,
+  cake: CakeArt,
+  coffee: CoffeeArt,
+  book: BookArt,
+  balloon: BalloonArt,
+  media: PhotoArt,
+}
 
 export default function GiftArt({ id, className = '', label }) {
   const Art = MAP[id] || FlowerArt

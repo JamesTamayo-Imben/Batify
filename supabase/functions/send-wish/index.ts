@@ -7,7 +7,7 @@ import {
   preflight, rateLimitDurable, serviceClient, stripUrls, verifyTurnstile,
 } from "../_shared/common.ts";
 
-const GIFTS = ["flower", "teddy", "chocolate", "media"];
+const GIFTS = ["flower", "teddy", "chocolate", "cake", "coffee", "book", "balloon", "media"];
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -34,8 +34,10 @@ Deno.serve(async (req) => {
       const wishId = clean(form.get("wishId"), 64);
       const reason = clean(form.get("reason"), 300) || "unspecified";
       const { data: wish } = await sb
-        .from("wishes").select("id, pages!inner(is_published)")
-        .eq("id", wishId).eq("is_approved", true).maybeSingle();
+        .from("wishes").select("id, pages!inner(is_published, expires_at)")
+        .eq("id", wishId).eq("is_approved", true)
+        .eq("pages.is_published", true).gt("pages.expires_at", new Date().toISOString())
+        .maybeSingle();
       if (!wish) return json({ error: "Wish not found." }, 404);
       const { error } = await sb.from("reports").insert({ wish_id: wishId, reason });
       if (error) return json({ error: "Could not submit report." }, 500);
@@ -46,8 +48,8 @@ Deno.serve(async (req) => {
     const slug = clean(form.get("slug"), 80);
     const { data: page } = await sb
       .from("pages")
-      .select("id, owner_name, auto_approve_wishes, gcash_number, is_published, campaign_type, opens_at")
-      .eq("slug", slug).eq("is_published", true).maybeSingle();
+      .select("id, owner_name, auto_approve_wishes, gcash_number, is_published, campaign_type, opens_at, expires_at")
+      .eq("slug", slug).eq("is_published", true).gt("expires_at", new Date().toISOString()).maybeSingle();
     if (!page) return json({ error: "Page not found." }, 404);
     if (page.opens_at && new Date(page.opens_at).getTime() > Date.now()) {
       return json({ error: "This special-event letter is not open yet." }, 403);

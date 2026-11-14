@@ -38,8 +38,13 @@ credential.
 - A sealed-envelope opening experience and responsive birthday page.
 - Birthday wishes presented as gift boxes, with individual and bulk
   wrap/unwrap controls.
+- Eight gift choices for wishes: flowers, teddy bears, chocolate, cake, coffee,
+  books, balloons, and photos or videos.
 - Optional reveal scheduling, wish moderation, photo/video gifts, GCash details,
   and QR-code sharing.
+- Public birthday and anniversary pages expire at midnight (Asia/Manila) 30
+  days after their date. Seasonal pages expire at midnight after the campaign
+  ends; owners and admins retain access to expired pages.
 - Christmas, Halloween, Valentine's Day, and New Year links become available
   during the 30-day lead-in and open on the event date. Anniversary links remain
   available year-round; all new special-event letters stay sealed until their

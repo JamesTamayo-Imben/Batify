@@ -17,6 +17,7 @@ create table if not exists public.pages (
   title               text not null,
   letter              text not null,
   birthday_date       date not null,
+  expires_at          timestamptz,
   opens_at            timestamptz,
   theme               text default 'confetti',
   reveal_at           timestamptz,                     -- wishes locked until this time
@@ -34,7 +35,7 @@ create table if not exists public.wishes (
   page_id     uuid references public.pages(id) on delete cascade,
   sender_name text not null,
   message     text,
-  gift_type   text not null,                           -- 'flower' | 'teddy' | 'chocolate' | 'media'
+  gift_type   text not null,                           -- flower, teddy, chocolate, cake, coffee, book, balloon, media
   media_url   text,
   media_type  text,                                    -- 'image' | 'video'
   is_approved boolean default false,
@@ -71,6 +72,7 @@ create index if not exists reports_wish_idx on public.reports (wish_id);
 -- ---------------------------------------------------------------------------
 
 alter table public.pages add column if not exists opens_at timestamptz;
+alter table public.pages add column if not exists expires_at timestamptz;
 
 alter table public.pages         enable row level security;
 alter table public.wishes        enable row level security;
@@ -80,7 +82,11 @@ alter table public.reports       enable row level security;
 drop policy if exists pages_public_read on public.pages;
 create policy pages_public_read on public.pages
   for select to anon, authenticated
-  using (is_published = true and (opens_at is null or opens_at <= now()));
+  using (
+    is_published = true
+    and (opens_at is null or opens_at <= now())
+    and expires_at > now()
+  );
 
 -- Stronger than the bare "is_approved = true" rule: wishes stay hidden at the
 -- API level (not just in the UI) until the page's reveal_at has passed, so the
@@ -94,7 +100,8 @@ create policy wishes_public_read on public.wishes
       select 1 from public.pages p
       where p.id = wishes.page_id
         and p.is_published = true
-      and (p.opens_at is null or p.opens_at <= now())
+        and (p.opens_at is null or p.opens_at <= now())
+        and p.expires_at > now()
         and (p.reveal_at is null or p.reveal_at <= now())
     )
   );
@@ -116,7 +123,7 @@ revoke all on public.reports       from anon, authenticated;
 
 grant select (
   id, slug, owner_name, title, letter, birthday_date, theme, reveal_at,
-  auto_approve_wishes, gcash_number, gcash_qr_url, is_published, created_at
+  auto_approve_wishes, gcash_number, gcash_qr_url, is_published, expires_at, created_at
 ) on public.pages to anon, authenticated;
 
 grant select on public.wishes to anon, authenticated;
@@ -132,7 +139,9 @@ alter table public.pages add column if not exists open_count integer not null de
 create or replace function public.increment_open(p_slug text)
 returns void language sql security definer set search_path = public as $$
   update public.pages set open_count = open_count + 1
-  where slug = p_slug and is_published and (opens_at is null or opens_at <= now());
+  where slug = p_slug and is_published
+    and (opens_at is null or opens_at <= now())
+    and expires_at > now();
 $$;
 revoke all on function public.increment_open(text) from public, anon, authenticated;
 grant execute on function public.increment_open(text) to service_role;
@@ -140,7 +149,7 @@ grant execute on function public.increment_open(text) to service_role;
 create or replace function public.page_opens_at(p_slug text)
 returns timestamptz language sql stable security definer set search_path = public as $$
   select opens_at from public.pages
-  where slug = p_slug and is_published and opens_at > now();
+  where slug = p_slug and is_published and opens_at > now() and expires_at > now();
 $$;
 revoke all on function public.page_opens_at(text) from public, anon, authenticated;
 grant execute on function public.page_opens_at(text) to anon, authenticated;
@@ -224,23 +233,23 @@ values
   ('christmas', 'Christmas Pamasko',
    'Make a gift link for your ninongs and ninangs to send their pamasko.',
    true, 11, 25, 12, 25,
-   '{"flower":"Holiday flowers","teddy":"Christmas teddy","chocolate":"Christmas treats","media":"Photo or video"}'),
+   '{"flower":"Holiday flowers","teddy":"Christmas teddy","chocolate":"Christmas treats","cake":"Holiday cake","coffee":"Warm coffee","book":"Holiday read","balloon":"Holiday balloons","media":"Photo or video"}'),
   ('halloween', 'Halloween Treats',
    'Share a Halloween letter and let friends send a little treat.',
    true, 10, 1, 10, 31,
-   '{"flower":"Autumn flowers","teddy":"Spooky teddy","chocolate":"Halloween treats","media":"Photo or video"}'),
+   '{"flower":"Autumn flowers","teddy":"Spooky teddy","chocolate":"Halloween treats","cake":"Spooky cupcakes","coffee":"Spiced coffee","book":"Spooky story","balloon":"Halloween balloons","media":"Photo or video"}'),
   ('valentines', 'Valentine''s Day',
    'Share a love note and let someone send a little surprise.',
    true, 1, 15, 2, 14,
-   '{"flower":"Roses","teddy":"Loveable teddy","chocolate":"Sweet treats","media":"Photo or video"}'),
+   '{"flower":"Roses","teddy":"Loveable teddy","chocolate":"Sweet treats","cake":"Valentine cake","coffee":"Coffee date","book":"Love story","balloon":"Heart balloons","media":"Photo or video"}'),
   ('new_year', 'New Year Wishes',
    'Send a New Year letter and start the year with wishes and gifts.',
    true, 12, 2, 1, 1,
-   '{"flower":"New Year flowers","teddy":"New Year teddy","chocolate":"New Year treats","media":"Photo or video"}'),
+   '{"flower":"New Year flowers","teddy":"New Year teddy","chocolate":"New Year treats","cake":"New Year cake","coffee":"New Year coffee","book":"Fresh-start read","balloon":"Celebration balloons","media":"Photo or video"}'),
   ('anniversary', 'Anniversary',
    'Celebrate your anniversary with a link for wishes and gifts.',
    true, 1, 1, 12, 31,
-   '{"flower":"Anniversary flowers","teddy":"Keepsake teddy","chocolate":"Sweet treats","media":"Photo or video"}')
+   '{"flower":"Anniversary flowers","teddy":"Keepsake teddy","chocolate":"Sweet treats","cake":"Celebration cake","coffee":"Coffee date","book":"A book for us","balloon":"Anniversary balloons","media":"Photo or video"}')
 on conflict (id) do nothing;
 
 update public.campaign_events
@@ -258,6 +267,18 @@ set start_month = 12, start_day = 2, updated_at = now()
 where id = 'new_year'
   and start_month = 12 and start_day = 26 and end_month = 1 and end_day = 1;
 
+update public.campaign_events
+set gift_options =
+  case id
+    when 'christmas' then '{"cake":"Holiday cake","coffee":"Warm coffee","book":"Holiday read","balloon":"Holiday balloons"}'::jsonb
+    when 'halloween' then '{"cake":"Spooky cupcakes","coffee":"Spiced coffee","book":"Spooky story","balloon":"Halloween balloons"}'::jsonb
+    when 'valentines' then '{"cake":"Valentine cake","coffee":"Coffee date","book":"Love story","balloon":"Heart balloons"}'::jsonb
+    when 'new_year' then '{"cake":"New Year cake","coffee":"New Year coffee","book":"Fresh-start read","balloon":"Celebration balloons"}'::jsonb
+    when 'anniversary' then '{"cake":"Celebration cake","coffee":"Coffee date","book":"A book for us","balloon":"Anniversary balloons"}'::jsonb
+    else '{}'::jsonb
+  end || gift_options
+where id in ('christmas', 'halloween', 'valentines', 'new_year', 'anniversary');
+
 alter table public.campaign_events enable row level security;
 revoke all on public.campaign_events from anon, authenticated;
 grant select (
@@ -267,6 +288,90 @@ grant select (
 drop policy if exists campaign_events_public_read on public.campaign_events;
 create policy campaign_events_public_read on public.campaign_events
   for select to anon, authenticated using (true);
+
+-- Pages expire without a scheduled job: public access is gated by expires_at
+-- in RLS and Edge Functions. All deadlines use midnight in Asia/Manila.
+create or replace function public.page_expiration(
+  p_birthday_date date,
+  p_campaign_type text,
+  p_created_at timestamptz
+)
+returns timestamptz
+language plpgsql stable set search_path = public as $$
+declare
+  v_reference_date date := coalesce(
+    (p_created_at at time zone 'Asia/Manila')::date,
+    (now() at time zone 'Asia/Manila')::date
+  );
+  v_campaign public.campaign_events%rowtype;
+  v_year integer;
+  v_start_md integer;
+  v_end_md integer;
+  v_reference_md integer;
+  v_end_day integer;
+  v_expiry_date date;
+begin
+  if p_birthday_date is null then
+    raise exception 'A birthday date is required to calculate page expiration.';
+  end if;
+
+  if p_campaign_type is not null and p_campaign_type <> 'anniversary' then
+    select * into v_campaign
+    from public.campaign_events
+    where id = p_campaign_type;
+
+    if not found then
+      raise exception 'Campaign % is not configured for page expiration.', p_campaign_type;
+    end if;
+
+    v_year := extract(year from v_reference_date)::integer;
+    v_start_md := v_campaign.start_month * 100 + v_campaign.start_day;
+    v_end_md := v_campaign.end_month * 100 + v_campaign.end_day;
+    v_reference_md := extract(month from v_reference_date)::integer * 100
+      + extract(day from v_reference_date)::integer;
+
+    if v_start_md > v_end_md and v_reference_md >= v_start_md then
+      v_year := v_year + 1;
+    end if;
+
+    v_end_day := least(
+      v_campaign.end_day,
+      extract(day from (
+        date_trunc('month', make_date(v_year, v_campaign.end_month, 1))
+        + interval '1 month - 1 day'
+      ))::integer
+    );
+    v_expiry_date := make_date(v_year, v_campaign.end_month, v_end_day);
+  else
+    v_expiry_date := p_birthday_date + 30;
+  end if;
+
+  return (v_expiry_date + 1)::timestamp at time zone 'Asia/Manila';
+end;
+$$;
+revoke all on function public.page_expiration(date, text, timestamptz) from public, anon, authenticated;
+grant execute on function public.page_expiration(date, text, timestamptz) to service_role;
+
+create or replace function public.apply_page_expiration()
+returns trigger
+language plpgsql set search_path = public as $$
+begin
+  new.expires_at := public.page_expiration(new.birthday_date, new.campaign_type, new.created_at);
+  return new;
+end;
+$$;
+revoke all on function public.apply_page_expiration() from public, anon, authenticated;
+grant execute on function public.apply_page_expiration() to service_role;
+
+drop trigger if exists pages_apply_expiration on public.pages;
+create trigger pages_apply_expiration
+  before insert or update of birthday_date, campaign_type on public.pages
+  for each row execute function public.apply_page_expiration();
+
+update public.pages
+set expires_at = public.page_expiration(birthday_date, campaign_type, created_at)
+where expires_at is null;
+alter table public.pages alter column expires_at set not null;
 
 -- ---------------------------------------------------------------------------
 -- STORAGE

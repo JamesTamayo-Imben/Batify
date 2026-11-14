@@ -6,6 +6,7 @@ import { postJSON } from '../lib/ajax'
 import { formatDateTime, peso } from '../lib/dates'
 import { giftLabel } from '../lib/gifts'
 import { copyText } from '../lib/share'
+import { isPageExpired } from '../lib/pages'
 import CampaignSettings from '../components/CampaignEditor'
 
 const SKEY = 'batify:admin'
@@ -122,22 +123,25 @@ export default function Admin() {
             <input className="field" placeholder="Search name, title or slug" value={q} onChange={(e) => setQ(e.target.value)} />
             <button className="btn-primary">Search</button>
           </form>
-          {rows.pages.map((p) => (
-            <div key={p.id} className="card !p-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <Link to={`/p/${p.slug}`} className="font-bold text-brand-600">{p.title}</Link>
-                  <p className="text-xs text-slate-500">{p.owner_name} · {p.slug} · {p.wishes?.[0]?.count ?? 0} wishes · {formatDateTime(p.created_at)}</p>
+          {rows.pages.map((p) => {
+            const expired = isPageExpired(p.expires_at)
+            return (
+              <div key={p.id} className="card !p-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <Link to={`/p/${p.slug}`} className="font-bold text-brand-600">{p.title}</Link>
+                    <p className="text-xs text-slate-500">{p.owner_name} · {p.slug} · {p.wishes?.[0]?.count ?? 0} wishes · {formatDateTime(p.created_at)} · expires {formatDateTime(p.expires_at)}</p>
+                  </div>
+                  <span className={`badge ${expired ? 'bg-amber-100 text-amber-700' : p.is_published ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>{expired ? 'expired' : p.is_published ? 'published' : 'hidden'}</span>
                 </div>
-                <span className={`badge ${p.is_published ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>{p.is_published ? 'published' : 'hidden'}</span>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button className="btn-ghost btn-sm disabled:opacity-50" disabled={expired && !p.is_published} onClick={() => act('set-published', { pageId: p.id, value: !p.is_published })}>{p.is_published ? 'Unpublish' : 'Publish'}</button>
+                  <button className="btn-ghost btn-sm" onClick={async () => setNote((await copyText(`${location.origin}/edit/${p.edit_token}`)) ? 'Edit link copied (owner support only).' : 'Could not copy.')}>Copy edit link</button>
+                  <button className="btn-ghost btn-sm text-red-600" onClick={() => act('delete-page', { pageId: p.id }, `Permanently delete "${p.title}" and all its wishes?`)}>Delete</button>
+                </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button className="btn-ghost btn-sm" onClick={() => act('set-published', { pageId: p.id, value: !p.is_published })}>{p.is_published ? 'Unpublish' : 'Publish'}</button>
-                <button className="btn-ghost btn-sm" onClick={async () => setNote((await copyText(`${location.origin}/edit/${p.edit_token}`)) ? 'Edit link copied (owner support only).' : 'Could not copy.')}>Copy edit link</button>
-                <button className="btn-ghost btn-sm text-red-600" onClick={() => act('delete-page', { pageId: p.id }, `Permanently delete "${p.title}" and all its wishes?`)}>Delete</button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
           {!busy && rows.pages.length === 0 && <p className="card text-center text-sm text-slate-500">No pages found.</p>}
         </div>
       )}

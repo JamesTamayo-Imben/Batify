@@ -14,6 +14,7 @@ import { rememberPage } from '../lib/mypages'
 import { CAMPAIGN_COLUMNS, giftOptionsFor, occasionOf } from '../lib/campaigns'
 import { sb } from '../lib/supabase'
 import { THEMES } from '../lib/themes'
+import { isPageExpired } from '../lib/pages'
 import useTitle from '../lib/useTitle'
 
 function Toggle({ checked, onChange, label, hint, disabled }) {
@@ -150,6 +151,7 @@ export default function EditPage() {
   const pendingPay = contributions.filter((c) => c.status === 'pending')
   const publicUrl = `${location.origin}/p/${page.slug}`
   const occasion = occasionOf(page.campaign_type)
+  const expired = isPageExpired(page.expires_at)
   const giftOptions = page.campaign_type ? giftOptionsFor(campaign || { id: page.campaign_type }) : null
 
   const patchWish = (id, fn) => setData((d) => ({ ...d, wishes: fn(d.wishes, id) }))
@@ -166,7 +168,8 @@ export default function EditPage() {
         <div className="flex items-center gap-2 text-sm font-bold text-muted"><LogoMark size={22} />Dashboard</div>
         <h1 className="mt-1 text-4xl sm:text-5xl">{page.title}</h1>
         <p className="mt-2 text-muted">
-          {occasion ? `${occasion.label}: ${formatDate(page.birthday_date)}` : formatDate(page.birthday_date)}. {page.is_published ? 'Published' : 'Unpublished'}.
+          {occasion ? `${occasion.label}: ${formatDate(page.birthday_date)}` : formatDate(page.birthday_date)}. {expired ? 'Expired' : page.is_published ? 'Published' : 'Unpublished'}.
+          {page.expires_at && ` Public link ${expired ? 'closed' : 'closes'} ${formatDateTime(page.expires_at)}.`}
           {page.reveal_at && ` Wishes reveal ${formatDateTime(page.reveal_at)}.`}
         </p>
         <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -407,7 +410,13 @@ function SettingsTab({ page, setData, run, call, busy, token, dateLabel }) {
 
       <div className="space-y-4 border-t border-slate-100 pt-5">
         <Toggle label="Auto-approve wishes" hint="New wishes appear without your review." checked={f.auto_approve_wishes} onChange={(v) => setF((p) => ({ ...p, auto_approve_wishes: v }))} />
-        <Toggle label="Page is published" hint="Turn off to hide your page from everyone." checked={f.is_published} onChange={(v) => setF((p) => ({ ...p, is_published: v }))} />
+        <Toggle
+          label="Page is published"
+          hint={expired ? `This page has expired. Update its date to calculate a new expiry.` : 'Turn off to hide your page from everyone.'}
+          checked={f.is_published}
+          disabled={expired && !f.is_published}
+          onChange={(v) => setF((p) => ({ ...p, is_published: v }))}
+        />
       </div>
 
       <button className="btn-primary w-full py-3.5 text-base" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>

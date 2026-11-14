@@ -18,6 +18,7 @@ import { hasOpened, markOpened, wishUnwrapped } from '../lib/opened'
 import { WishItem } from '../pages/PublicPage'
 import { themeOf } from '../lib/themes'
 import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days } from '../lib/campaigns'
+import { isPageExpired } from '../lib/pages'
 
 afterEach(() => { cleanup(); vi.useRealTimers(); localStorage.clear(); sessionStorage.clear() })
 
@@ -38,6 +39,15 @@ describe('seasonal campaigns', () => {
     expect(isCampaignActive(christmas, new Date('2026-11-25T00:00:00+08:00'))).toBe(true)
     expect(isCampaignActive(christmas, new Date('2026-12-26T00:00:00+08:00'))).toBe(false)
     expect(isCampaignActive({ ...christmas, is_enabled: false }, new Date('2026-12-01T12:00:00+08:00'))).toBe(false)
+  })
+
+  describe('page expiry', () => {
+    it('treats a page as expired at its deadline but not before it', () => {
+      const expiresAt = '2026-12-26T00:00:00+08:00'
+      expect(isPageExpired(expiresAt, new Date('2026-12-25T23:59:59+08:00'))).toBe(false)
+      expect(isPageExpired(expiresAt, new Date(expiresAt))).toBe(true)
+      expect(isPageExpired(null, new Date(expiresAt))).toBe(false)
+    })
   })
 
   it('handles a campaign that spans New Year', () => {
@@ -76,9 +86,16 @@ describe('seasonal campaigns', () => {
   it('limits event gift choices to configured catalog items', () => {
     const options = giftOptionsFor({
       id: 'christmas',
-      gift_options: { teddy: 'Pamasko', unknown: 'Ignored', flower: '' },
+      gift_options: { book: 'Holiday read', teddy: 'Pamasko', unknown: 'Ignored', flower: '' },
     })
-    expect(options).toEqual({ teddy: 'Pamasko' })
+    expect(options).toEqual({ book: 'Holiday read', teddy: 'Pamasko' })
+  })
+
+  it('offers the added birthday gifts in the wish picker', () => {
+    render(<GiftPicker value="cake" onChange={() => {}} />)
+    for (const label of ['Cake', 'Coffee', 'Book', 'Balloons']) {
+      expect(screen.getByRole('radio', { name: label })).toBeTruthy()
+    }
   })
 
   it('renders only event-approved gift choices', () => {
@@ -105,6 +122,7 @@ describe('seasonal campaigns', () => {
     fireEvent.change(screen.getByLabelText('Starts (MM-DD)'), { target: { value: '10-15' } })
     fireEvent.click(screen.getByLabelText('Enabled'))
     fireEvent.click(screen.getByLabelText('Suggest Teddy bear'))
+    fireEvent.click(screen.getByLabelText('Suggest Cake'))
     fireEvent.click(screen.getByRole('button', { name: 'Save campaign' }))
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
@@ -113,7 +131,7 @@ describe('seasonal campaigns', () => {
       isEnabled: false,
       startMonth: 10,
       startDay: 15,
-      giftOptions: { flower: 'Holiday flowers' },
+      giftOptions: { flower: 'Holiday flowers', cake: 'Holiday cake' },
     })))
   })
 })
