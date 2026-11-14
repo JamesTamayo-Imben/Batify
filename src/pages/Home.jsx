@@ -87,7 +87,7 @@ export default function Home() {
             <h2 id="campaigns-h" className="text-3xl sm:text-4xl">Make a special moment shareable</h2>
             <p className="mt-2 text-muted">Create a link for someone you love and let their people send wishes and gifts.</p>
             {campaignError && <p role="status" className="mt-3 text-sm font-semibold text-flag">{campaignError}</p>}
-            <div className={`mt-5 grid gap-3 ${campaigns.length === 1 ? 'sm:mx-auto sm:max-w-sm sm:grid-cols-1' : campaigns.length === 2 ? 'sm:mx-auto sm:max-w-4xl sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+            <div className={`mt-5 grid gap-3 ${campaigns.length === 1 ? 'sm:max-w-sm sm:grid-cols-1' : campaigns.length === 2 ? 'sm:mx-auto sm:max-w-4xl sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
               {campaigns.map((campaign) => (
                 <Link key={campaign.id} to={`/create?campaign=${encodeURIComponent(campaign.id)}`}
                   className="card flex h-full flex-col bg-white transition-transform hover:-translate-y-0.5">

@@ -50,7 +50,8 @@ credential.
   available year-round; all new special-event letters stay sealed until their
   chosen date.
 - A lightweight owner dashboard for page activity and wish management.
-- Dedicated About, How it works, and FAQ pages linked from the responsive footer.
+- Dedicated About Batify, developer story, Contact, How it works, and FAQ pages
+  linked from the responsive footer.
 - A progressive web app with reduced-motion support and accessible controls.
 
 ## Getting started
@@ -218,7 +219,8 @@ navigation to nested routes after deployment.
   public media bucket.
 - Uploads are checked by file signature, and SVG uploads are not accepted.
 - The super-admin interface is at `/admin` and requires the server-configured
-  `ADMIN_SECRET`.
+  `ADMIN_SECRET`. Its overview links to page, wish, report, and contribution
+  queues; administrators can filter pending wishes and payments.
 
 Review the schema, Edge Functions, and hosting configuration before using the
 app with real user data.

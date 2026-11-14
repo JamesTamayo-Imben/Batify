@@ -43,12 +43,16 @@ Deno.serve(async (req) => {
         const count = async (t: string, f?: (q: any) => any) => {
           let q = sb.from(t).select("id", { count: "exact", head: true });
           if (f) q = f(q);
-          return (await q).count ?? 0;
+          const result = await q;
+          return { count: result.count ?? 0, error: result.error };
         };
-        const [pages, wishes, pendingWishes, contributions, pendingPay, reports] = await Promise.all([
+        const counts = await Promise.all([
           count("pages"), count("wishes"), count("wishes", (q) => q.eq("is_approved", false)),
           count("contributions"), count("contributions", (q) => q.eq("status", "pending")), count("reports"),
         ]);
+        const failed = counts.find((result) => result.error);
+        if (failed?.error) return json({ error: `Could not load admin counts: ${failed.error.message}` }, 500);
+        const [pages, wishes, pendingWishes, contributions, pendingPay, reports] = counts.map((result) => result.count);
         return json({ stats: { pages, wishes, pendingWishes, contributions, pendingPay, reports } });
       }
 
@@ -175,8 +179,10 @@ Deno.serve(async (req) => {
       }
 
       case "list-contributions": {
-        const { data, error } = await sb.from("contributions")
+        let query = sb.from("contributions")
           .select("*, pages(slug, title)").order("created_at", { ascending: false }).limit(100);
+        if (body.pending === true) query = query.eq("status", "pending");
+        const { data, error } = await query;
         if (error) return json({ error: error.message }, 500);
         const paths = (data || []).map((c) => c.proof_url).filter(Boolean) as string[];
         const signed: Record<string, string> = {};

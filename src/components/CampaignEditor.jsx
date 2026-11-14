@@ -77,27 +77,27 @@ function CampaignEditor({ campaign, busy, onSave }) {
           <p className="mt-1 text-sm text-muted">Season dates recur every year in Philippine time. If the end date is earlier, the campaign spans New Year.</p>
         </div>
         <label className="flex shrink-0 items-center gap-2 text-sm font-bold">
-          <input type="checkbox" checked={form.isEnabled} onChange={(e) => update('isEnabled', e.target.checked)} />
+          <input type="checkbox" checked={form.isEnabled} disabled={busy} onChange={(e) => update('isEnabled', e.target.checked)} />
           Enabled
         </label>
       </div>
 
       <div>
         <label className="label" htmlFor={`${campaign.id}-title`}>Campaign title</label>
-        <input id={`${campaign.id}-title`} className="field" maxLength={80} required value={form.title} onChange={(e) => update('title', e.target.value)} />
+        <input id={`${campaign.id}-title`} className="field" maxLength={80} required disabled={busy} value={form.title} onChange={(e) => update('title', e.target.value)} />
       </div>
       <div>
         <label className="label" htmlFor={`${campaign.id}-description`}>Description</label>
-        <textarea id={`${campaign.id}-description`} className="field min-h-20" maxLength={240} required value={form.description} onChange={(e) => update('description', e.target.value)} />
+        <textarea id={`${campaign.id}-description`} className="field min-h-20" maxLength={240} required disabled={busy} value={form.description} onChange={(e) => update('description', e.target.value)} />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor={`${campaign.id}-start`}>Starts (MM-DD)</label>
-          <input id={`${campaign.id}-start`} className="field" inputMode="numeric" maxLength={5} pattern="\d{2}-\d{2}" placeholder="11-01" required value={form.start} onChange={(e) => update('start', e.target.value)} />
+          <input id={`${campaign.id}-start`} className="field" inputMode="numeric" maxLength={5} pattern="\d{2}-\d{2}" placeholder="11-01" required disabled={busy} value={form.start} onChange={(e) => update('start', e.target.value)} />
         </div>
         <div>
           <label className="label" htmlFor={`${campaign.id}-end`}>Ends (MM-DD)</label>
-          <input id={`${campaign.id}-end`} className="field" inputMode="numeric" maxLength={5} pattern="\d{2}-\d{2}" placeholder="12-31" required value={form.end} onChange={(e) => update('end', e.target.value)} />
+          <input id={`${campaign.id}-end`} className="field" inputMode="numeric" maxLength={5} pattern="\d{2}-\d{2}" placeholder="12-31" required disabled={busy} value={form.end} onChange={(e) => update('end', e.target.value)} />
         </div>
       </div>
       <fieldset>
@@ -107,12 +107,12 @@ function CampaignEditor({ campaign, busy, onSave }) {
             const checked = form.selected.includes(gift.id)
             return (
               <div key={gift.id} className="flex items-center gap-3">
-                <input type="checkbox" aria-label={`Suggest ${gift.label}`} checked={checked}
+                <input type="checkbox" aria-label={`Suggest ${gift.label}`} checked={checked} disabled={busy}
                   onChange={(e) => update('selected', e.target.checked
                     ? [...form.selected, gift.id]
                     : form.selected.filter((id) => id !== gift.id))} />
                 <input className="field" aria-label={`${gift.label} campaign label`} maxLength={40}
-                  value={form.labels[gift.id] || ''} disabled={!checked}
+                  value={form.labels[gift.id] || ''} disabled={!checked || busy}
                   onChange={(e) => update('labels', { ...form.labels, [gift.id]: e.target.value })} />
               </div>
             )
@@ -125,7 +125,9 @@ function CampaignEditor({ campaign, busy, onSave }) {
   )
 }
 
-export default function CampaignSettings({ campaigns, busy, onSave }) {
+export default function CampaignSettings({ campaigns, busy, error, onSave }) {
+  if (!campaigns.length) return busy || error ? null : <p className="card text-sm text-muted">No campaign settings were returned.</p>
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">Enabled campaigns appear during their date window. Set fixed-date events to start 30 days ahead; Anniversary stays available year-round. Seasonal letters stay sealed until their event date.</p>

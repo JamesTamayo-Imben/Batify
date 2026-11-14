@@ -46,6 +46,8 @@ export default function NavShell() {
               <li><Link className="flex min-h-11 items-center hover:text-sun focus-visible:outline-sun" to="/how-it-works">How it works</Link></li>
               <li><Link className="flex min-h-11 items-center hover:text-sun focus-visible:outline-sun" to="/faq">Questions</Link></li>
               <li><Link className="flex min-h-11 items-center hover:text-sun focus-visible:outline-sun" to="/about">About Batify</Link></li>
+              <li><Link className="flex min-h-11 items-center hover:text-sun focus-visible:outline-sun" to="/about-developer">About the developer</Link></li>
+              <li><Link className="flex min-h-11 items-center hover:text-sun focus-visible:outline-sun" to="/contact">Contact us</Link></li>
             </ul>
           </nav>
           <div className="col-span-2 border-t border-white/20 pt-5 md:col-span-1 md:border-0 md:pt-0">

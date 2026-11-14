@@ -7,12 +7,18 @@ vi.mock('../lib/confetti', async (importOriginal) => ({
   ...await importOriginal(),
   fireConfetti: vi.fn(),
 }))
+vi.mock('../lib/ajax', () => ({ postJSON: vi.fn() }))
+import { MemoryRouter } from 'react-router-dom'
+import { postJSON } from '../lib/ajax'
 import Envelope3D, { useEnvelope } from '../components/Envelope3D'
 import FlipCountdown from '../components/FlipCountdown'
 import GiftBox3D from '../components/GiftBox3D'
 import GiftPicker from '../components/GiftPicker'
 import CampaignSettings from '../components/CampaignEditor'
 import Turnstile from '../components/Turnstile'
+import AboutDeveloper from '../pages/AboutDeveloper'
+import Admin from '../pages/Admin'
+import Contact from '../pages/Contact'
 import { clearDraft, loadDraft, saveDraft } from '../lib/draft'
 import { hasOpened, markOpened, wishUnwrapped } from '../lib/opened'
 import { WishItem } from '../pages/PublicPage'
@@ -133,6 +139,66 @@ describe('seasonal campaigns', () => {
       startDay: 15,
       giftOptions: { flower: 'Holiday flowers', cake: 'Holiday cake' },
     })))
+  })
+})
+
+describe('public information pages', () => {
+  it('explains the virtual-appreciation idea without requiring a real gift', () => {
+    render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><AboutDeveloper /></MemoryRouter>)
+    expect(screen.getByRole('heading', { name: 'Why I made Batify.' })).toBeTruthy()
+    expect(screen.getByText(/There is no spending required/)).toBeTruthy()
+    expect(screen.getByText('— Jimz, developer of Batify')).toBeTruthy()
+  })
+
+  it('provides the real contact email through a working mailto link', () => {
+    render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Contact /></MemoryRouter>)
+    const emailLink = screen.getByRole('link', { name: 'Email Jimz' })
+    expect(emailLink.getAttribute('href')).toBe('mailto:jamesttamayo0604@gmail.com?subject=A%20note%20about%20Batify')
+  })
+})
+
+describe('admin console', () => {
+  beforeEach(() => {
+    sessionStorage.setItem('batify:admin', 'test-admin-secret')
+    vi.mocked(postJSON).mockImplementation(async (_name, body) => {
+      if (body.action === 'stats') {
+        return { stats: { pages: 4, wishes: 9, pendingWishes: 3, contributions: 2, pendingPay: 1, reports: 1 } }
+      }
+      if (body.action === 'list-pages') return { pages: [] }
+      if (body.action === 'list-wishes') return { wishes: [] }
+      if (body.action === 'list-reports') return { reports: [] }
+      if (body.action === 'list-contributions') return { contributions: [] }
+      if (body.action === 'list-campaigns') return { campaigns: [] }
+      return { ok: true }
+    })
+  })
+
+  it('supports arrow-key tab navigation and opens the pending-wish queue from its metric', async () => {
+    render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Admin /></MemoryRouter>)
+    const overview = await screen.findByRole('tab', { name: 'Overview' })
+    fireEvent.keyDown(overview, { key: 'ArrowRight' })
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Pages' }).getAttribute('aria-selected')).toBe('true'))
+    fireEvent.click(screen.getByRole('tab', { name: 'Overview' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Pending wishes: 3/ }))
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Wishes' }).getAttribute('aria-selected')).toBe('true'))
+    await waitFor(() => expect(postJSON).toHaveBeenCalledWith('admin', expect.objectContaining({
+      action: 'list-wishes',
+      pending: true,
+    })))
+    fireEvent.click(screen.getByRole('tab', { name: 'Overview' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Pending payments: 1/ }))
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Payments' }).getAttribute('aria-selected')).toBe('true'))
+    await waitFor(() => expect(postJSON).toHaveBeenCalledWith('admin', expect.objectContaining({
+      action: 'list-contributions',
+      pending: true,
+    })))
+  })
+
+  it('shows a count error instead of presenting stale or zero metrics', async () => {
+    vi.mocked(postJSON).mockRejectedValue(new Error('Could not load admin counts: query failed'))
+    render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Admin /></MemoryRouter>)
+    expect((await screen.findByRole('alert')).textContent).toContain('Could not load admin counts: query failed')
+    expect(screen.queryByRole('button', { name: /Pages: 0/ })).toBeNull()
   })
 })
 

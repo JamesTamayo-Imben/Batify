@@ -10,6 +10,8 @@ import './styles/bits.css'
 import NavShell from './components/NavShell'
 const Home = lazy(() => import('./pages/Home'))
 const About = lazy(() => import('./pages/About'))
+const AboutDeveloper = lazy(() => import('./pages/AboutDeveloper'))
+const Contact = lazy(() => import('./pages/Contact'))
 const HowItWorks = lazy(() => import('./pages/HowItWorks'))
 const FAQ = lazy(() => import('./pages/FAQ'))
 const Create = lazy(() => import('./pages/Create'))
@@ -29,6 +31,8 @@ function App() {
           <Route element={<NavShell />}>
             <Route path="/" element={<Home />} />
             <Route path="/about" element={<About />} />
+            <Route path="/about-developer" element={<AboutDeveloper />} />
+            <Route path="/contact" element={<Contact />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/create" element={<Create />} />
