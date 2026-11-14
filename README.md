@@ -2,23 +2,30 @@
 
 # Batify
 
-### Birthday letters, wishes, and gifts in one link.
+### A letter worth opening. A little love worth sharing.
 
 **Bati na, may pa-gift pa.**
 
-[Try Batify](https://batify.site.je) · [Deployment](#deployment) · [License](LICENSE)
+[Open Batify](https://batify.site.je) · [How it works](#how-batify-works) · [Run locally](#run-locally) · [License](LICENSE)
+
+[![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=111827)](https://react.dev/)
+[![Vite 5](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)](https://vite.dev/)
+[![Supabase](https://img.shields.io/badge/Supabase-backend-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
+[![Proprietary license](https://img.shields.io/badge/license-Proprietary-C92F20)](LICENSE)
 
 </div>
 
-Batify lets someone write a birthday letter, share one link, and receive wishes
-and gifts from friends. It is a static React application backed by Supabase:
-there are no user accounts, and a private edit link is the page owner's
-credential.
+> Create a celebration page, seal a personal letter, and share one link for
+> friends to leave wishes and virtual gifts. Batify is built for fun and
+> appreciation, not spending: no real gift or money is required.
 
-> **License:** Batify's original source code and visual design are proprietary.
-> Do not copy or reuse the design without prior written permission. See
-> [LICENSE](LICENSE) for the full terms. Third-party components and fonts retain
-> their own licenses.
+## How Batify works
+
+1. **Make it personal.** Write a birthday or special-event letter, choose a
+   theme, and seal it in a digital envelope.
+2. **Share one link.** Friends can leave a message and choose a virtual gift.
+3. **Open the moment.** The page owner manages the page and wishes from a
+   private edit link; event pages open and expire on schedule.
 
 ## At a glance
 
@@ -34,7 +41,8 @@ credential.
 ## Product features
 
 - A guided, four-step birthday letter creator with a live preview and autosaved
-  draft.
+  draft, seven curated palettes, and a custom color picker that derives a
+  matching palette.
 - A sealed-envelope opening experience and responsive birthday page.
 - Birthday wishes presented as gift boxes, with individual and bulk
   wrap/unwrap controls.
@@ -53,6 +61,16 @@ credential.
 - Dedicated About Batify, developer story, Contact, How it works, and FAQ pages
   linked from the responsive footer.
 - A progressive web app with reduced-motion support and accessible controls.
+
+## Contents
+
+- [Getting started](#getting-started)
+- [Environment variables](#environment-variables)
+- [Deployment](#deployment)
+- [Security and data handling](#security-and-data-handling)
+- [Development and tests](#development-and-tests)
+- [Known limitations](#known-limitations)
+- [License](#license)
 
 ## Getting started
 
@@ -88,12 +106,15 @@ Edit `.env.local` and provide the values described in
    project, configure the server-side secrets, and deploy the Edge Functions:
 
    ```powershell
-   npm install --global supabase
-   supabase login
-   supabase link --project-ref <your-project-ref>
-   supabase secrets set TURNSTILE_SECRET_KEY=<turnstile-secret>
-   supabase secrets set ADMIN_SECRET=<long-random-secret>
-   supabase functions deploy create-page send-wish manage-page admin track-open
+   npx supabase login
+   npx supabase link --project-ref <your-project-ref>
+   npx supabase secrets set TURNSTILE_SECRET_KEY=<turnstile-secret>
+   npx supabase secrets set ADMIN_SECRET=<long-random-secret>
+   npx supabase functions deploy create-page
+   npx supabase functions deploy send-wish
+   npx supabase functions deploy manage-page
+   npx supabase functions deploy admin
+   npx supabase functions deploy track-open
    ```
 
    Supabase injects `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` into Edge
@@ -265,8 +286,8 @@ devices.
 
 ## License
 
-Batify's original source code and visual design are proprietary. All rights are
-reserved; copying, adapting, or reusing the design requires prior written
-permission. Third-party dependencies, fonts, and other third-party materials
-remain under their own licenses. See [`LICENSE`](LICENSE) for the complete
-terms.
+Batify is **proprietary, not open source**. You are not authorized to copy,
+modify, distribute, deploy, or reuse Batify-owned source code, artwork, or
+design without prior written permission. Third-party dependencies, fonts, and
+other third-party materials remain under their own licenses. See
+[`LICENSE`](LICENSE) for the full terms.
