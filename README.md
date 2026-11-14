@@ -50,6 +50,7 @@ credential.
   available year-round; all new special-event letters stay sealed until their
   chosen date.
 - A lightweight owner dashboard for page activity and wish management.
+- Dedicated About, How it works, and FAQ pages linked from the responsive footer.
 - A progressive web app with reduced-motion support and accessible controls.
 
 ## Getting started

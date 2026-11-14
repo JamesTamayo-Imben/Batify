@@ -8,37 +8,37 @@ import './styles/giftbox.css'
 import './styles/bits.css'
 
 import NavShell from './components/NavShell'
-import Home from './pages/Home'
-import Create from './pages/Create'
-import PublicPage from './pages/PublicPage'
-import EditEntry from './pages/EditEntry'
-import EditPage from './pages/EditPage'
-import NotFound from './pages/NotFound'
-
+const Home = lazy(() => import('./pages/Home'))
+const About = lazy(() => import('./pages/About'))
+const HowItWorks = lazy(() => import('./pages/HowItWorks'))
+const FAQ = lazy(() => import('./pages/FAQ'))
+const Create = lazy(() => import('./pages/Create'))
+const PublicPage = lazy(() => import('./pages/PublicPage'))
+const EditEntry = lazy(() => import('./pages/EditEntry'))
+const EditPage = lazy(() => import('./pages/EditPage'))
+const NotFound = lazy(() => import('./pages/NotFound'))
 const Admin = lazy(() => import('./pages/Admin'))
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* The letter is immersive: no site chrome around it. */}
-        <Route path="/p/:slug" element={<PublicPage />} />
-        <Route element={<NavShell />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/create" element={<Create />} />
-          <Route path="/edit" element={<EditEntry />} />
-          <Route path="/edit/:token" element={<EditPage />} />
-          <Route
-            path="/admin"
-            element={
-              <Suspense fallback={<p className="p-8 text-center text-muted">Loading</p>}>
-                <Admin />
-              </Suspense>
-            }
-          />
-          <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
+      <Suspense fallback={<p className="page-wrap text-center text-muted">Loading page…</p>}>
+        <Routes>
+          {/* The letter is immersive: no site chrome around it. */}
+          <Route path="/p/:slug" element={<PublicPage />} />
+          <Route element={<NavShell />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/how-it-works" element={<HowItWorks />} />
+            <Route path="/faq" element={<FAQ />} />
+            <Route path="/create" element={<Create />} />
+            <Route path="/edit" element={<EditEntry />} />
+            <Route path="/edit/:token" element={<EditPage />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

@@ -11,6 +11,7 @@ import { SLOTS } from '../lib/ads'
 import { GIFTS } from '../lib/gifts'
 import { fireConfetti } from '../lib/confetti'
 import { CAMPAIGN_COLUMNS, isCampaignActive } from '../lib/campaigns'
+import { FAQS } from '../lib/faqs'
 import { sb } from '../lib/supabase'
 import useTitle from '../lib/useTitle'
 
@@ -40,15 +41,6 @@ const STEPS = [
   { t: 'Write the letter', d: 'Your name, your birthday, a few honest paragraphs. Pick the colors of your envelope.' },
   { t: 'Send one link', d: 'Paste it in the group chat, post it, or print its QR code on a card.' },
   { t: 'Unwrap what comes back', d: 'Each wish arrives as a gift box. Open them one by one, or all at once on the day.' },
-]
-
-const FAQ = [
-  ['Is it free?', 'Yes. Pages, wishes and gifts cost nothing. Pages may show a single ad at the very bottom, never next to a form or a photo.'],
-  ['Do I need an account?', 'No. When you create a page you get a private edit link. Anyone with that link can manage the page, so keep it safe.'],
-  ['What if I lose my edit link?', 'It cannot be recovered. Save it to your notes or message it to yourself right after you create the page.'],
-  ['Can I hide wishes until my birthday?', 'Yes. Set a reveal time and everyone sees a countdown. Wishes stay hidden on our servers until then, not just on screen.'],
-  ['How does GCash work?', 'Add your number. Friends send money in the GCash app and upload a screenshot here. You check each one and mark it as received. Batify never touches the money.'],
-  ['What can friends send?', 'Flowers, a teddy bear, chocolate, or a photo or video up to 25 MB, plus a message. You can review wishes before they appear.'],
 ]
 
 export default function Home() {
@@ -95,13 +87,13 @@ export default function Home() {
             <h2 id="campaigns-h" className="text-3xl sm:text-4xl">Make a special moment shareable</h2>
             <p className="mt-2 text-muted">Create a link for someone you love and let their people send wishes and gifts.</p>
             {campaignError && <p role="status" className="mt-3 text-sm font-semibold text-flag">{campaignError}</p>}
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className={`mt-5 grid gap-3 ${campaigns.length === 1 ? 'sm:mx-auto sm:max-w-sm sm:grid-cols-1' : campaigns.length === 2 ? 'sm:mx-auto sm:max-w-4xl sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
               {campaigns.map((campaign) => (
                 <Link key={campaign.id} to={`/create?campaign=${encodeURIComponent(campaign.id)}`}
-                  className="card bg-white transition-transform hover:-translate-y-0.5">
+                  className="card flex h-full flex-col bg-white transition-transform hover:-translate-y-0.5">
                   <h3 className="text-2xl">{campaign.title}</h3>
-                  <p className="mt-2 text-muted">{campaign.description}</p>
-                  <span className="link mt-4 inline-block">Create a link</span>
+                  <p className="mt-2 flex-1 text-muted">{campaign.description}</p>
+                  <span className="link mt-5 inline-block">Create a link</span>
                 </Link>
               ))}
             </div>
@@ -167,7 +159,7 @@ export default function Home() {
         <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
           <h2 id="faq-h" className="text-4xl sm:text-5xl">Questions</h2>
           <div className="mt-8 divide-y-2 divide-ink/15 border-y-2 border-ink/15">
-            {FAQ.map(([q, a]) => (
+            {FAQS.map(([q, a]) => (
               <details key={q} className="group py-1">
                 <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-4 text-lg font-bold">
                   {q}<Icon name="chevron" className="transition-transform group-open:rotate-180" />
@@ -176,6 +168,7 @@ export default function Home() {
               </details>
             ))}
           </div>
+          <Link to="/faq" className="link mt-5 inline-flex min-h-11 items-center">See all questions</Link>
         </div>
       </section>
 
