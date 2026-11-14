@@ -128,7 +128,7 @@ export default function Home() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
             {GIFTS.map((g, i) => (
               <div key={g.id} className="rounded-2xl border-2 border-ink bg-white p-3 text-ink">
-                <div className="grid h-28 place-items-center">
+                <div className="grid h-36 place-items-center">
                   {i === 0 ? <GiftBox3D gift="flower" size={84} open={boxOpen} color="#E0518B" ribbon="#F7C531" /> : <GiftArt id={g.id} className="h-24 w-24" />}
                 </div>
                 <p className="mt-1 text-center text-sm font-bold">{g.label}</p>

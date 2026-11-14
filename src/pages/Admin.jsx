@@ -22,6 +22,16 @@ const SUCCESS_MESSAGES = {
   'update-campaign': 'Campaign settings saved.',
 }
 
+function campaignActionError(action, message) {
+  if (
+    (action === 'list-campaigns' || action === 'update-campaign')
+    && /^unknown action\.?$/i.test(message)
+  ) {
+    return 'The deployed admin function does not support campaign settings yet. Deploy the latest admin Edge Function, then try again.'
+  }
+  return message
+}
+
 export default function Admin() {
   const [secret, setSecret] = useState(getSecret)
   const [input, setInput] = useState('')
@@ -76,7 +86,7 @@ export default function Admin() {
       if (which === 'campaigns') setCampaigns(data.campaigns)
     } catch (e) {
       if (requestVersion !== loadVersion.current) return
-      setError(e.message)
+      setError(which === 'campaigns' ? campaignActionError('list-campaigns', e.message) : e.message)
       if (/invalid admin secret/i.test(e.message)) logout()
     } finally {
       if (requestVersion === loadVersion.current) setBusy(false)
@@ -96,7 +106,7 @@ export default function Admin() {
       setNote(SUCCESS_MESSAGES[action] || 'Changes saved.')
       await load(activeTab.current)
     } catch (e) {
-      setError(e.message)
+      setError(campaignActionError(action, e.message))
     } finally {
       if (requestVersion === loadVersion.current) setBusy(false)
     }

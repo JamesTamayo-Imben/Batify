@@ -200,6 +200,47 @@ describe('admin console', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('Could not load admin counts: query failed')
     expect(screen.queryByRole('button', { name: /Pages: 0/ })).toBeNull()
   })
+
+  it('explains when the deployed admin function lacks campaign actions', async () => {
+    vi.mocked(postJSON).mockImplementation(async (_name, body) => {
+      if (body.action === 'stats') {
+        return { stats: { pages: 4, wishes: 9, pendingWishes: 3, contributions: 2, pendingPay: 1, reports: 1 } }
+      }
+      if (body.action === 'list-campaigns') throw new Error('Unknown action.')
+      return { ok: true }
+    })
+    render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Admin /></MemoryRouter>)
+    fireEvent.click(await screen.findByRole('tab', { name: 'Campaigns' }))
+    expect((await screen.findByRole('alert')).textContent).toContain('Deploy the latest admin Edge Function')
+  })
+
+  it('gives campaign saves an actionable error when the deployed function is outdated', async () => {
+    vi.mocked(postJSON).mockImplementation(async (_name, body) => {
+      if (body.action === 'stats') {
+        return { stats: { pages: 4, wishes: 9, pendingWishes: 3, contributions: 2, pendingPay: 1, reports: 1 } }
+      }
+      if (body.action === 'list-campaigns') {
+        return { campaigns: [{
+          id: 'christmas',
+          title: 'Christmas Pamasko',
+          description: 'Share gifts',
+          is_enabled: true,
+          start_month: 11,
+          start_day: 1,
+          end_month: 12,
+          end_day: 31,
+          gift_options: { flower: 'Holiday flowers' },
+        }] }
+      }
+      if (body.action === 'update-campaign') throw new Error('Unknown action.')
+      return { ok: true }
+    })
+    render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Admin /></MemoryRouter>)
+    fireEvent.click(await screen.findByRole('tab', { name: 'Campaigns' }))
+    fireEvent.change(await screen.findByLabelText('Campaign title'), { target: { value: 'New campaign title' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save campaign' }))
+    expect((await screen.findByRole('alert')).textContent).toContain('Deploy the latest admin Edge Function')
+  })
 })
 
 describe('storage helpers', () => {
