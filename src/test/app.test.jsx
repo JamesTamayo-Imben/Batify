@@ -19,6 +19,7 @@ import Snowfall from '../components/Snowfall'
 import { LogoMark } from '../components/Logo'
 import ThemePicker from '../components/ThemePicker'
 import CampaignSettings from '../components/CampaignEditor'
+import CampaignThemeProvider, { useCampaignTheme } from '../components/CampaignThemeProvider'
 import Turnstile from '../components/Turnstile'
 import AboutDeveloper from '../pages/AboutDeveloper'
 import Admin from '../pages/Admin'
@@ -31,6 +32,7 @@ import { WishItem } from '../pages/PublicPage'
 import { DEFAULT_CUSTOM_COLOR, themeOf, themeStyleOf } from '../lib/themes'
 import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, millisecondsUntilManilaMidnight, priorityThemeFor, previewThemeForCampaign } from '../lib/campaigns'
 import { isPageExpired } from '../lib/pages'
+import { sb } from '../lib/supabase'
 
 afterEach(() => { cleanup(); vi.useRealTimers(); localStorage.clear(); sessionStorage.clear() })
 
@@ -223,6 +225,29 @@ describe('seasonal campaigns', () => {
     expect(screen.getByRole('button', { name: /Preview Anniversary theme/ }).getAttribute('aria-pressed')).toBe('false')
   })
 
+  it('keeps a local preview easy to turn off after leaving the campaign card', async () => {
+    const query = { select: vi.fn(() => query), eq: vi.fn(() => Promise.resolve({ data: [], error: null })) }
+    const from = vi.spyOn(sb, 'from').mockReturnValue(query)
+    function PreviewControls() {
+      const { setPreviewThemeId } = useCampaignTheme()
+      return <button type="button" onClick={() => setPreviewThemeId('christmas')}>Start preview</button>
+    }
+
+    try {
+      const { container } = render(<CampaignThemeProvider><PreviewControls /></CampaignThemeProvider>)
+      await waitFor(() => expect(from).toHaveBeenCalledWith('campaign_events'))
+      fireEvent.click(screen.getByRole('button', { name: 'Start preview' }))
+      expect(screen.getByRole('status').textContent).toBe('Previewing Christmas theme on this device.')
+      expect(container.querySelector('[data-theme]').getAttribute('data-theme')).toBe('christmas')
+
+      fireEvent.click(screen.getByRole('button', { name: 'Turn off Christmas theme preview' }))
+      expect(screen.queryByRole('status')).toBeNull()
+      expect(container.querySelector('[data-theme]').getAttribute('data-theme')).toBe('confetti')
+    } finally {
+      from.mockRestore()
+    }
+  })
+
   it('renders falling snowflakes with branched arms', () => {
     const { container } = render(<Snowfall />)
     expect(container.querySelectorAll('.snowflake')).toHaveLength(18)
@@ -377,6 +402,7 @@ describe('seasonal opening', () => {
   it('opens when the enabled device sensor detects a shake', async () => {
     const originalMotion = window.DeviceMotionEvent
     const onActivate = vi.fn()
+    const now = vi.spyOn(Date, 'now')
     Object.defineProperty(window, 'DeviceMotionEvent', {
       configurable: true,
       value: { requestPermission: vi.fn().mockResolvedValue('granted') },
@@ -384,13 +410,26 @@ describe('seasonal opening', () => {
     try {
       render(<SeasonalOpener theme="christmas" title="Holiday wishes" step={0} onActivate={onActivate} />)
       fireEvent.click(screen.getByRole('button', { name: 'Enable shake to open' }))
-      await waitFor(() => expect(screen.getByText('Shake enabled. Tap the Christmas tree or give your phone a shake.')).toBeTruthy())
+      await waitFor(() => expect(screen.getByText('Shake enabled. Shake your phone 3 times to open, or tap the Christmas tree.')).toBeTruthy())
 
-      const motion = new Event('devicemotion')
-      Object.defineProperty(motion, 'accelerationIncludingGravity', { value: { x: 20, y: 0, z: 0 } })
-      act(() => window.dispatchEvent(motion))
+      const dispatchMotion = (strength, timestamp) => {
+        now.mockReturnValue(timestamp)
+        const motion = new Event('devicemotion')
+        Object.defineProperty(motion, 'accelerationIncludingGravity', { value: { x: strength, y: 0, z: 0 } })
+        act(() => window.dispatchEvent(motion))
+      }
+      dispatchMotion(20, 1000)
+      expect(onActivate).not.toHaveBeenCalled()
+      expect(screen.getByRole('status').textContent).toBe('1 of 3 shakes. Shake 2 more times to open.')
+      dispatchMotion(0, 1100)
+      dispatchMotion(20, 1300)
+      expect(onActivate).not.toHaveBeenCalled()
+      dispatchMotion(0, 1400)
+      dispatchMotion(20, 1600)
       expect(onActivate).toHaveBeenCalledOnce()
+      expect(screen.getByRole('status').textContent).toBe('Three shakes detected. Opening your letter…')
     } finally {
+      now.mockRestore()
       if (originalMotion === undefined) delete window.DeviceMotionEvent
       else Object.defineProperty(window, 'DeviceMotionEvent', { configurable: true, value: originalMotion })
     }

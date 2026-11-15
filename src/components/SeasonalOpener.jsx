@@ -70,7 +70,9 @@ export function EventMark({ theme, className = '' }) {
 export default function SeasonalOpener({ theme, title, letterText, step, onActivate, className = '' }) {
   const [shakeEnabled, setShakeEnabled] = useState(false)
   const [message, setMessage] = useState('')
-  const lastShake = useRef(0)
+  const [shakeCount, setShakeCount] = useState(0)
+  const lastShake = useRef(Number.NEGATIVE_INFINITY)
+  const aboveThreshold = useRef(false)
   const name = EVENT_NAMES[theme] || 'event icon'
   const giftPalette = GIFT_PALETTES[theme] || GIFT_PALETTES.christmas
 
@@ -81,15 +83,30 @@ export default function SeasonalOpener({ theme, title, letterText, step, onActiv
       const { x, y, z } = event.accelerationIncludingGravity || {}
       if (![x, y, z].every(Number.isFinite)) return
       const strength = Math.hypot(x, y, z)
+      if (strength <= 18) {
+        aboveThreshold.current = false
+        return
+      }
+      if (aboveThreshold.current) return
+      aboveThreshold.current = true
+
       const now = Date.now()
-      if (strength > 18 && now - lastShake.current > 1600) {
+      if (now - lastShake.current >= 300) {
         lastShake.current = now
-        onActivate()
+        const nextCount = shakeCount + 1
+        setShakeCount(nextCount)
+        if (nextCount === 3) {
+          setMessage('Three shakes detected. Opening your letter…')
+          onActivate()
+        } else {
+          const remaining = 3 - nextCount
+          setMessage(`${nextCount} of 3 shakes. Shake ${remaining} more ${remaining === 1 ? 'time' : 'times'} to open.`)
+        }
       }
     }
     window.addEventListener('devicemotion', onMotion)
     return () => window.removeEventListener('devicemotion', onMotion)
-  }, [onActivate, shakeEnabled, step])
+  }, [onActivate, shakeCount, shakeEnabled, step])
 
   async function enableShake() {
     const motion = window.DeviceMotionEvent
@@ -103,7 +120,7 @@ export default function SeasonalOpener({ theme, title, letterText, step, onActiv
         if (permission !== 'granted') throw new Error('Motion permission was not granted.')
       }
       setShakeEnabled(true)
-      setMessage(`Shake enabled. Tap the ${name} or give your phone a shake.`)
+      setMessage(`Shake enabled. Shake your phone 3 times to open, or tap the ${name}.`)
     } catch (error) {
       setMessage('Shake could not be enabled. Tap the illustration to open the letter.')
     }
@@ -133,7 +150,7 @@ export default function SeasonalOpener({ theme, title, letterText, step, onActiv
       <p className="mt-4 text-lg font-bold" aria-live="polite">
         {step === 0 ? `Tap the ${name} to open the letter` : 'Opening your letter…'}
       </p>
-      {step === 0 && (
+      {step === 0 && !shakeEnabled && (
         <button type="button" className="btn-ghost btn-sm mt-3" onClick={enableShake}>
           Enable shake to open
         </button>

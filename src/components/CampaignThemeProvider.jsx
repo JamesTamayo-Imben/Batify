@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { CAMPAIGN_COLUMNS, millisecondsUntilManilaMidnight, priorityThemeFor } from '../lib/campaigns'
+import { CAMPAIGN_COLUMNS, millisecondsUntilManilaMidnight, occasionOf, priorityThemeFor } from '../lib/campaigns'
 import { sb } from '../lib/supabase'
 import Snowfall from './Snowfall'
 
@@ -62,9 +62,23 @@ export default function CampaignThemeProvider({ children }) {
   }, [])
 
   const activeThemeId = previewThemeId || themeId
+  const previewLabel = occasionOf(previewThemeId)?.label || previewThemeId
   return (
     <CampaignThemeContext.Provider value={{ themeId: activeThemeId, previewThemeId, setPreviewThemeId, loading }}>
       <div data-theme={activeThemeId || 'confetti'} className="min-h-dvh bg-paper">
+        {previewThemeId && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-ink bg-sun px-4 py-2 text-sm font-semibold text-ink">
+            <p role="status">Previewing {previewLabel} theme on this device.</p>
+            <button
+              type="button"
+              className="btn-ghost btn-sm shrink-0"
+              aria-label={`Turn off ${previewLabel} theme preview`}
+              onClick={() => setPreviewThemeId(null)}
+            >
+              Turn off preview
+            </button>
+          </div>
+        )}
         {activeThemeId === 'christmas' && <Snowfall />}
         {children}
       </div>
