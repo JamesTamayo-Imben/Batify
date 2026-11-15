@@ -159,13 +159,16 @@ export default function EditPage() {
   const pendingPay = contributions.filter((c) => c.status === 'pending')
   const publicUrl = `${location.origin}/p/${page.slug}`
   const occasion = occasionOf(page.campaign_type)
+  const messageNoun = occasion?.messageNoun || 'wish'
+  const messageList = occasion?.collectionLabel || 'wishes'
+  const messageListTab = occasion?.collectionLabel || 'Wishes'
   const expired = isPageExpired(page.expires_at)
   const giftOptions = page.campaign_type ? giftOptionsFor(campaign || { id: page.campaign_type }) : null
 
   const patchWish = (id, fn) => setData((d) => ({ ...d, wishes: fn(d.wishes, id) }))
 
   const tabs = [
-    ['wishes', `Wishes${pending.length ? ` (${pending.length})` : ''}`],
+    ['wishes', `${messageListTab}${pending.length ? ` (${pending.length})` : ''}`],
     ['gcash', `GCash${pendingPay.length ? ` (${pendingPay.length})` : ''}`],
     ['settings', 'Settings'],
   ]
@@ -178,12 +181,12 @@ export default function EditPage() {
         <p className="mt-2 text-muted">
           {occasion ? `${occasion.label}: ${formatDate(page.birthday_date)}` : formatDate(page.birthday_date)}. {expired ? 'Expired' : page.is_published ? 'Published' : 'Unpublished'}.
           {page.expires_at && ` Public link ${expired ? 'closed' : 'closes'} ${formatDateTime(page.expires_at)}.`}
-          {page.reveal_at && ` Wishes reveal ${formatDateTime(page.reveal_at)}.`}
+          {page.reveal_at && ` ${occasion?.revealLabel || 'Wishes reveal'} ${formatDateTime(page.reveal_at)}.`}
         </p>
         <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             ['Opened', typeof page.open_count === 'number' ? page.open_count : null, 'eye'],
-            ['Live wishes', live.length, 'heart'],
+            [`Live ${messageList}`, live.length, 'heart'],
             ['To review', pending.length, 'clock'],
             ['GCash confirmed', peso(contributions.filter((c) => c.status === 'paid').reduce((a, c) => a + Number(c.amount), 0)), 'wallet'],
           ].filter(([, v]) => v !== null).map(([k, v, ic]) => (
@@ -220,26 +223,26 @@ export default function EditPage() {
       {tab === 'wishes' && (
         <div className="space-y-8">
           <section>
-            <h2 className="mb-3 text-xl font-bold">Pending <span className="text-slate-400">({pending.length})</span></h2>
+            <h2 className="mb-3 text-xl font-bold">Pending {messageList} <span className="text-slate-400">({pending.length})</span></h2>
             {pending.length === 0 ? <p className="card text-center text-sm text-slate-500">Nothing waiting for approval.</p> : (
               <ul className="space-y-3">
                 {pending.map((w) => (
                   <WishRow key={w.id} wish={w} pending busy={busy}
                     giftOptions={giftOptions}
-                    onApprove={() => run(async () => { await call('approve-wish', { wishId: w.id }); patchWish(w.id, (ws, id) => ws.map((x) => x.id === id ? { ...x, is_approved: true } : x)) }, 'Wish approved')}
-                    onDelete={() => confirm('Delete this wish?') && run(async () => { await call('delete-wish', { wishId: w.id }); patchWish(w.id, (ws, id) => ws.filter((x) => x.id !== id)) }, 'Wish deleted')} />
+                    onApprove={() => run(async () => { await call('approve-wish', { wishId: w.id }); patchWish(w.id, (ws, id) => ws.map((x) => x.id === id ? { ...x, is_approved: true } : x)) }, `${messageNoun} approved`)}
+                    onDelete={() => confirm(`Delete this ${messageNoun}?`) && run(async () => { await call('delete-wish', { wishId: w.id }); patchWish(w.id, (ws, id) => ws.filter((x) => x.id !== id)) }, `${messageNoun} deleted`)} />
                 ))}
               </ul>
             )}
           </section>
           <section>
-            <h2 className="mb-3 text-xl font-bold">Live <span className="text-slate-400">({live.length})</span></h2>
-            {live.length === 0 ? <p className="card text-center text-sm text-slate-500">No live wishes yet.</p> : (
+            <h2 className="mb-3 text-xl font-bold">Live {messageList} <span className="text-slate-400">({live.length})</span></h2>
+            {live.length === 0 ? <p className="card text-center text-sm text-slate-500">No {messageList} yet.</p> : (
               <ul className="space-y-3">
                 {live.map((w) => (
                   <WishRow key={w.id} wish={w} busy={busy}
                     giftOptions={giftOptions}
-                    onDelete={() => confirm('Remove this wish from your page?') && run(async () => { await call('delete-wish', { wishId: w.id }); patchWish(w.id, (ws, id) => ws.filter((x) => x.id !== id)) }, 'Wish removed')} />
+                    onDelete={() => confirm(`Remove this ${messageNoun} from your page?`) && run(async () => { await call('delete-wish', { wishId: w.id }); patchWish(w.id, (ws, id) => ws.filter((x) => x.id !== id)) }, `${messageNoun} removed`)} />
                 ))}
               </ul>
             )}
@@ -317,6 +320,7 @@ function GcashTab({ data, setData, run, call, busy }) {
 
 /* ------------------------------------------------------------- Settings tab */
 function SettingsTab({ page, setData, run, call, busy, token, expired, dateLabel }) {
+  const occasion = occasionOf(page.campaign_type)
   const [f, setF] = useState({
     owner_name: page.owner_name,
     title: page.title,
@@ -446,16 +450,18 @@ function SettingsTab({ page, setData, run, call, busy, token, expired, dateLabel
           <input id="s-bday" type="date" className="field" required value={f.birthday_date} onChange={set('birthday_date')} />
         </div>
         <div>
-          <label className="label" htmlFor="s-reveal">Reveal wishes at</label>
+          <label className="label" htmlFor="s-reveal">{occasion?.revealLabel || 'Reveal wishes at'}</label>
           <input id="s-reveal" type="datetime-local" className="field" value={f.reveal_at} onChange={set('reveal_at')} />
           <p className="hint">Empty = always visible.</p>
         </div>
       </div>
 
-      <fieldset>
-        <legend className="label">Envelope colors</legend>
-        <ThemePicker value={f.theme} onChange={(theme) => setF((p) => ({ ...p, theme }))} idPrefix="settings-theme" />
-      </fieldset>
+      {!occasion?.priorityTheme && (
+        <fieldset>
+          <legend className="label">Envelope colors</legend>
+          <ThemePicker value={f.theme} onChange={(theme) => setF((p) => ({ ...p, theme }))} idPrefix="settings-theme" />
+        </fieldset>
+      )}
 
       <div>
         <label className="label" htmlFor="s-gcash">GCash number</label>
@@ -480,7 +486,7 @@ function SettingsTab({ page, setData, run, call, busy, token, expired, dateLabel
       <div className="space-y-4 border-t border-slate-100 pt-5">
         <section aria-labelledby="push-settings-heading" className="rounded-xl border-2 border-ink/15 bg-white p-4">
           <h3 id="push-settings-heading" className="font-bold">Gift notifications</h3>
-          <p className="mt-1 text-sm text-slate-600">Get an alert when someone sends a wish, gift, or GCash contribution.</p>
+          <p className="mt-1 text-sm text-slate-600">Get an alert when someone sends a message, gift, or GCash contribution.</p>
           {!pushSupported ? (
             <p className="mt-3 text-sm font-semibold text-slate-600">
               {!VAPID_PUBLIC_KEY
@@ -494,7 +500,12 @@ function SettingsTab({ page, setData, run, call, busy, token, expired, dateLabel
           )}
           {pushError && <p className="mt-2 text-sm font-semibold text-red-600" role="alert">{pushError}</p>}
         </section>
-        <Toggle label="Auto-approve wishes" hint="New wishes appear without your review." checked={f.auto_approve_wishes} onChange={(v) => setF((p) => ({ ...p, auto_approve_wishes: v }))} />
+        <Toggle
+          label={`Auto-approve ${occasion?.collectionLabel || 'wishes'}`}
+          hint={`New ${occasion?.collectionLabel || 'wishes'} appear without your review.`}
+          checked={f.auto_approve_wishes}
+          onChange={(v) => setF((p) => ({ ...p, auto_approve_wishes: v }))}
+        />
         <Toggle
           label="Page is published"
           hint={expired ? `This page has expired. Update its date to calculate a new expiry.` : 'Turn off to hide your page from everyone.'}

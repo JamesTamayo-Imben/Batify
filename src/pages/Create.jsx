@@ -9,13 +9,14 @@ import { SLOTS } from '../lib/ads'
 import { fireConfetti } from '../lib/confetti'
 import { formatDate, fromLocalInput } from '../lib/dates'
 import { clearDraft, loadDraft, saveDraft } from '../lib/draft'
-import { CAMPAIGN_COLUMNS, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, occasionOf } from '../lib/campaigns'
+import { CAMPAIGN_COLUMNS, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, occasionOf, upcomingCampaignDate } from '../lib/campaigns'
 import { error as buzzError, success, tap } from '../lib/haptics'
 import { rememberPage } from '../lib/mypages'
 import { copyText, shareLink } from '../lib/share'
 import { qrPng, qrSvg } from '../lib/qr'
 import { sb } from '../lib/supabase'
 import ThemePicker from '../components/ThemePicker'
+import SeasonalOpener from '../components/SeasonalOpener'
 import { themeOf, themeStyleOf } from '../lib/themes'
 import useTitle from '../lib/useTitle'
 
@@ -59,6 +60,7 @@ function Result({ result, f, campaign }) {
   const [svg, setSvg] = useState('')
   const [shareMsg, setShareMsg] = useState('')
   const env = useEnvelope({ max: 3, initial: 3, onStep: (n) => { if (n === 0) { setSealed(true); fireConfetti({ x: 0.5, y: 0.45, count: 160 }) } } })
+  const eventTheme = campaign?.priorityTheme
 
   useEffect(() => { const t = setTimeout(env.close, 700); return () => clearTimeout(t) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { qrSvg(publicUrl, { size: 200 }).then(setSvg).catch(() => {}) }, [publicUrl])
@@ -69,14 +71,18 @@ function Result({ result, f, campaign }) {
   }
   const shareText = campaign?.shareText || 'Send me a birthday wish'
   const wa = `https://wa.me/?text=${encodeURIComponent(`${shareText}: ${publicUrl}`)}`
-  const mail = `mailto:?subject=${encodeURIComponent('My Batify edit link')}&body=${encodeURIComponent(`Keep this private. It is the only way to manage my birthday page:\n${editUrl}`)}`
+  const mail = `mailto:?subject=${encodeURIComponent('My Batify edit link')}&body=${encodeURIComponent(`Keep this private. It is the only way to manage my Batify page:\n${editUrl}`)}`
 
   return (
     <div>
-      <section data-theme={themeOf(f.theme)} style={themeStyleOf(f.theme)} className="border-b-2 border-ink bg-ground px-4 pb-16 pt-20 text-center">
-        <Envelope3D step={env.step} initial={(f.ownerName.trim()[0] || 'B').toUpperCase()} still size="min(74vw, 340px)">
-          <div className="t">{f.title}</div><div className="s">With love, {f.ownerName}</div><div className="lines" />
-        </Envelope3D>
+      <section data-theme={eventTheme || themeOf(f.theme)} style={eventTheme ? undefined : themeStyleOf(f.theme)} className="border-b-2 border-ink bg-ground px-4 pb-16 pt-20 text-center">
+        {eventTheme ? (
+          <SeasonalOpener theme={eventTheme} title={f.title} letterText={f.letter} step={env.step} onActivate={env.open} className="seasonal-opener--hero" />
+        ) : (
+          <Envelope3D step={env.step} initial={(f.ownerName.trim()[0] || 'B').toUpperCase()} still size="min(74vw, 340px)">
+            <div className="t">{f.title}</div><div className="s">With love, {f.ownerName}</div><div className="lines" />
+          </Envelope3D>
+        )}
         <h1 className="mt-16 text-4xl sm:text-5xl" aria-live="polite">{sealed ? 'Sealed and live' : 'Sealing your letter'}</h1>
         <p className="mx-auto mt-3 max-w-md text-lg">Share the public link. Keep the edit link safe.</p>
       </section>
@@ -153,6 +159,7 @@ export default function Create() {
           setCampaignStatus('error')
         } else {
           setCampaign(data)
+          setF((current) => ({ ...current, birthdayDate: upcomingCampaignDate(data) || current.birthdayDate }))
           setCampaignStatus('ready')
         }
       })
@@ -229,6 +236,10 @@ export default function Create() {
   const first = f.ownerName.trim().split(/\s+/)[0]
   const occasion = occasionOf(campaign?.id)
   const starters = occasion?.starters || STARTERS
+  const eventTheme = occasion?.priorityTheme
+  const titlePlaceholder = occasion?.id === 'christmas'
+    ? `${first ? `${first}’s` : 'Your'} Christmas letter`
+    : occasion?.titlePlaceholder || campaign?.title || (first ? `${first} turns 25` : 'Maria turns 25')
   const dateLabel = occasion?.dateLabel || 'Birthday'
   return (
     <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-14 lg:py-12">
@@ -252,7 +263,7 @@ export default function Create() {
                 <input id="ownerName" className="field" maxLength={60} value={f.ownerName} onChange={set('ownerName')} placeholder="Maria Santos" autoComplete="name" aria-invalid={!!errs.ownerName} aria-describedby={errs.ownerName ? 'ownerName-err' : undefined} />
               </Field>
               <Field id="title" label="Page title" error={errs.title} hint="This is the headline on the envelope.">
-                <input id="title" className="field" maxLength={120} value={f.title} onChange={set('title')} placeholder={campaign?.title || (first ? `${first} turns 25` : 'Maria turns 25')} aria-invalid={!!errs.title} aria-describedby={`title-${errs.title ? 'err' : 'hint'}`} />
+                <input id="title" className="field" maxLength={120} value={f.title} onChange={set('title')} placeholder={titlePlaceholder} aria-invalid={!!errs.title} aria-describedby={`title-${errs.title ? 'err' : 'hint'}`} />
               </Field>
               <Field id="birthdayDate" label={dateLabel} error={errs.birthdayDate}
                 hint={campaign?.id === 'anniversary'
@@ -270,7 +281,7 @@ export default function Create() {
                 <p id="letter-count" className="hint text-right">{f.letter.length} / 8000</p>
               </Field>
               <div>
-                <p className="label">Stuck? Start with one of these</p>
+                <p className="label">{occasion?.starterHeading || 'Stuck? Start with one of these:'}</p>
                 <div className="flex flex-wrap gap-2">
                   {starters.map((s) => <button key={s} type="button" onClick={() => addStarter(s)} className="min-h-[44px] rounded-full border-2 border-ink bg-white px-4 text-sm font-bold hover:bg-sun">{s}...</button>)}
                 </div>
@@ -280,13 +291,17 @@ export default function Create() {
 
           {wiz === 2 && (
             <>
-              <fieldset>
-                <legend className="label">Envelope colors</legend>
-                <ThemePicker value={f.theme} onChange={(theme) => setF((p) => ({ ...p, theme }))} idPrefix="create-theme" />
-              </fieldset>
-              <Field id="revealAt" label="Reveal wishes at" optional hint="Wishes stay hidden behind a countdown until this time. Leave it empty to show them right away.">
+              {eventTheme ? (
+                <p className="card text-sm text-muted">The {occasion.label} tree and seasonal colors are applied automatically.</p>
+              ) : (
+                <fieldset>
+                  <legend className="label">Envelope colors</legend>
+                  <ThemePicker value={f.theme} onChange={(theme) => setF((p) => ({ ...p, theme }))} idPrefix="create-theme" />
+                </fieldset>
+              )}
+              <Field id="revealAt" label={occasion?.revealLabel || 'Reveal wishes at'} optional hint={occasion?.revealHint || 'Wishes stay hidden behind a countdown until this time. Leave it empty to show them right away.'}>
                 <input id="revealAt" type="datetime-local" className="field" value={f.revealAt} onChange={set('revealAt')} aria-describedby="revealAt-hint" />
-                {f.birthdayDate && <button type="button" className="link mt-2 min-h-[44px] text-sm" onClick={() => setF((p) => ({ ...p, revealAt: `${p.birthdayDate}T00:00` }))}>Use midnight on my birthday</button>}
+                {f.birthdayDate && <button type="button" className="link mt-2 min-h-[44px] text-sm" onClick={() => setF((p) => ({ ...p, revealAt: `${p.birthdayDate}T00:00` }))}>{occasion?.revealButton || `Use midnight on my ${dateLabel.toLowerCase()}`}</button>}
               </Field>
               <Field id="gcash" label="GCash number" optional error={errs.gcashNumber} hint="Friends can send you a little extra. You confirm each payment yourself.">
                 <input id="gcash" inputMode="tel" className="field" value={f.gcashNumber} onChange={set('gcashNumber')} placeholder="09171234567" maxLength={16} aria-invalid={!!errs.gcashNumber} aria-describedby={`gcash-${errs.gcashNumber ? 'err' : 'hint'}`} />
@@ -297,7 +312,7 @@ export default function Create() {
           {wiz === 3 && (
             <>
               <dl className="card divide-y-2 divide-ink/10 !p-0">
-                {[['From', f.ownerName], ['Title', f.title], [dateLabel, f.birthdayDate], ['Wishes', f.revealAt ? `Hidden until ${new Date(f.revealAt).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}` : 'Visible right away'], ['GCash', f.gcashNumber || 'Off']].map(([k, v]) => (
+                {[['From', f.ownerName], ['Title', f.title], [dateLabel, f.birthdayDate], [occasion?.collectionLabel || 'Wishes', f.revealAt ? `Hidden until ${new Date(f.revealAt).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}` : 'Visible right away'], ['GCash', f.gcashNumber || 'Off']].map(([k, v]) => (
                   <div key={k} className="grid grid-cols-[96px_1fr] gap-3 px-5 py-3"><dt className="font-bold text-muted">{k}</dt><dd className="min-w-0 break-words font-semibold">{v}</dd></div>
                 ))}
               </dl>
@@ -319,11 +334,22 @@ export default function Create() {
       </div>
 
       <aside aria-label="Envelope preview" className="lg:sticky lg:top-24 lg:self-start">
-        <div data-theme={themeOf(f.theme)} style={themeStyleOf(f.theme)} className="grid place-items-center overflow-hidden rounded-3xl border-2 border-ink bg-ground px-4 pb-14 pt-24">
-          <Envelope3D step={env.step} initial={(f.ownerName.trim()[0] || 'B').toUpperCase()} size="min(70vw, 320px)" still={wiz === 1}>
-            <div className="t">{f.title || 'Your title'}</div>
-            {env.step >= 3 ? <p className="body" style={{ display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{f.letter || 'Your letter appears here as you write it.'}</p> : <div className="s">With love, {f.ownerName || 'you'}</div>}
-          </Envelope3D>
+        <div data-theme={eventTheme || themeOf(f.theme)} style={eventTheme ? undefined : themeStyleOf(f.theme)} className="grid place-items-center overflow-hidden rounded-3xl border-2 border-ink bg-ground px-4 pb-14 pt-24">
+          {eventTheme ? (
+            <SeasonalOpener
+              theme={eventTheme}
+              title={f.title || titlePlaceholder}
+              letterText={f.letter || 'Your letter appears here as you write it.'}
+              step={env.step}
+              onActivate={env.open}
+              className="seasonal-opener--hero"
+            />
+          ) : (
+            <Envelope3D step={env.step} initial={(f.ownerName.trim()[0] || 'B').toUpperCase()} size="min(70vw, 320px)" still={wiz === 1}>
+              <div className="t">{f.title || 'Your title'}</div>
+              {env.step >= 3 ? <p className="body" style={{ display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{f.letter || 'Your letter appears here as you write it.'}</p> : <div className="s">With love, {f.ownerName || 'you'}</div>}
+            </Envelope3D>
+          )}
         </div>
         <p className="mt-3 text-center text-sm text-muted">This is how friends will see your envelope.</p>
       </aside>

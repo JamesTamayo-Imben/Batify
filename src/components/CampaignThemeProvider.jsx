@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { CAMPAIGN_COLUMNS, millisecondsUntilManilaMidnight, occasionOf, priorityThemeFor } from '../lib/campaigns'
 import { sb } from '../lib/supabase'
 import Snowfall from './Snowfall'
@@ -12,6 +12,55 @@ const CampaignThemeContext = createContext({
 
 export function useCampaignTheme() {
   return useContext(CampaignThemeContext)
+}
+
+function ChristmasAudio() {
+  const audio = useRef(null)
+  const [playing, setPlaying] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const track = new Audio('/audio/christmas-story.mp3')
+    track.volume = 0.12
+    track.preload = 'none'
+    audio.current = track
+    const onEnded = () => setPlaying(false)
+    track.addEventListener('ended', onEnded)
+    track.play().then(() => setPlaying(true)).catch(() => {})
+    return () => {
+      track.pause()
+      track.removeEventListener('ended', onEnded)
+      audio.current = null
+    }
+  }, [])
+
+  async function toggleAudio() {
+    const track = audio.current
+    if (!track) return
+    setError('')
+    if (!track.paused) {
+      track.pause()
+      setPlaying(false)
+      return
+    }
+    try {
+      await track.play()
+      setPlaying(true)
+    } catch (playError) {
+      console.error('Could not play the Christmas audio:', playError)
+      setError('Audio could not be played. Check your browser settings and try again.')
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-ink bg-ground px-4 py-2 text-sm font-semibold text-ink">
+      <p>Quiet Christmas music</p>
+      <button type="button" className="btn-ghost btn-sm shrink-0" onClick={toggleAudio} aria-pressed={playing}>
+        {playing ? 'Pause Christmas music' : 'Play Christmas music'}
+      </button>
+      {error && <p role="alert" className="w-full">{error}</p>}
+    </div>
+  )
 }
 
 export default function CampaignThemeProvider({ children }) {
@@ -109,6 +158,7 @@ export default function CampaignThemeProvider({ children }) {
           </div>
         )}
         {activeThemeId === 'christmas' && <Snowfall />}
+        {activeThemeId === 'christmas' && <ChristmasAudio />}
         {children}
       </div>
     </CampaignThemeContext.Provider>

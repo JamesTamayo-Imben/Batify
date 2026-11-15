@@ -69,13 +69,17 @@ export function CampaignCard({ campaign, isActive, previewThemeId, setPreviewThe
 function HeroEnvelope({ themeId }) {
   const e = useEnvelope({ max: 3, onStep: (n) => { if (n === 3) fireConfetti({ x: 0.72, y: 0.42, count: 70, power: 0.8 }) } })
   const open = e.step >= 2
+  const seasonalTitle = themeId ? `Maria’s ${occasionOf(themeId)?.label || 'special'} letter` : 'Maria turns 25'
+  const seasonalText = themeId === 'christmas'
+    ? 'Thank you for making this Christmas brighter. Here is a little pamasko and a note from me.'
+    : SAMPLE
   return (
     <div className="relative mx-auto w-full max-w-[480px] pt-20 sm:pt-28">
       {themeId ? (
         <SeasonalOpener
           theme={themeId}
-          title="Maria turns 25"
-          letterText={SAMPLE}
+          title={seasonalTitle}
+          letterText={seasonalText}
           step={e.step}
           onActivate={e.open}
           className="seasonal-opener--hero"
@@ -102,13 +106,23 @@ const STEPS = [
   { t: 'Send one link', d: 'Paste it in the group chat, post it, or print its QR code on a card.' },
   { t: 'Unwrap what comes back', d: 'Each wish arrives as a gift box. Open them one by one, or all at once on the day.' },
 ]
+const CHRISTMAS_STEPS = [
+  { t: 'Write a Christmas letter', d: 'Share a favorite holiday memory, a heartfelt greeting, or a little pamasko.' },
+  { t: 'Send one link', d: 'Share it with family and friends in the group chat or print its QR code on a card.' },
+  { t: 'Unwrap the greetings', d: 'Every message arrives as a gift box, ready to open whenever you like.' },
+]
 
 export default function Home() {
   const { themeId, previewThemeId, setPreviewThemeId } = useCampaignTheme()
-  useTitle('Batify: birthday letters, wishes and gifts in one link')
+  const christmasTheme = themeId === 'christmas'
+  const steps = christmasTheme ? CHRISTMAS_STEPS : STEPS
   const [boxOpen, setBoxOpen] = useState(false)
   const [campaigns, setCampaigns] = useState([])
   const [campaignError, setCampaignError] = useState('')
+  const visibleCampaigns = christmasTheme
+    ? campaigns.filter((campaign) => campaign.id === 'christmas' && isCampaignActive(campaign))
+    : campaigns
+  useTitle(christmasTheme ? 'Batify: Christmas letters, greetings and pamasko' : 'Batify: birthday letters, wishes and gifts in one link')
 
   useEffect(() => {
     let dead = false
@@ -117,7 +131,7 @@ export default function Home() {
         if (dead) return
         if (error) setCampaignError('Seasonal links are temporarily unavailable.')
         else setCampaigns((data || []).filter((campaign) =>
-          isCampaignActive(campaign) || (campaign.id === 'anniversary' && campaign.is_enabled),
+          campaign.is_priority === true || (campaign.id === 'anniversary' && campaign.is_enabled),
         ))
       })
     return () => { dead = true }
@@ -127,16 +141,18 @@ export default function Home() {
     <div>
       {/* Hero: the envelope is the product, so it is the first thing you can touch. */}
       <section data-theme={themeId || 'confetti'} className="relative overflow-hidden border-b-2 border-ink bg-ground pb-20">
-        <Banderitas className="absolute inset-x-0 top-0" count={11} />
+        {!christmasTheme && <Banderitas className="absolute inset-x-0 top-0" count={11} />}
         <div className="mx-auto grid max-w-6xl items-center gap-6 px-4 pt-24 sm:px-6 lg:grid-cols-2 lg:gap-10 lg:pt-28">
           <div>
-            <h1 className="text-balance text-5xl sm:text-6xl lg:text-7xl">Bati na, may pa-gift pa.</h1>
+            <h1 className="text-balance text-5xl sm:text-6xl lg:text-7xl">{christmasTheme ? 'Pasko na, may pa-pamasko pa.' : 'Bati na, may pa-gift pa.'}</h1>
             <p className="mt-5 max-w-lg text-xl leading-snug">
-              Write your birthday letter once and share one link. Friends open it like real mail, then send wishes, gifts and a little GCash back.
+              {christmasTheme
+                ? 'Write a Christmas letter and share one link. Friends can send greetings, virtual pamasko and a little GCash.'
+                : 'Write your birthday letter once and share one link. Friends open it like real mail, then send wishes, gifts and a little GCash back.'}
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link to="/create" className="btn-primary px-7 py-3.5 text-lg">Write my letter</Link>
-              <Link to="/edit" className="btn-ghost px-7 py-3.5 text-lg">I already have a page</Link>
+              <Link to="/create" className="btn-primary px-7 py-3.5 text-lg">{christmasTheme ? 'Write a Christmas letter' : 'Write my letter'}</Link>
+              <Link to="/edit" className="btn-ghost px-7 py-3.5 text-lg">{christmasTheme ? 'Open my page' : 'I already have a page'}</Link>
             </div>
             <p className="mt-4 font-semibold">Free. No account. Takes about three minutes.</p>
           </div>
@@ -144,14 +160,14 @@ export default function Home() {
         </div>
       </section>
 
-      {(campaigns.length > 0 || campaignError) && (
+      {(visibleCampaigns.length > 0 || campaignError) && (
         <section className="border-b-2 border-ink bg-sun/30 px-4 py-10 sm:px-6" aria-labelledby="campaigns-h">
           <div className="mx-auto max-w-6xl">
-            <h2 id="campaigns-h" className="text-3xl sm:text-4xl">Make a special moment shareable</h2>
-            <p className="mt-2 text-muted">Create a link for someone you love and let their people send wishes and gifts.</p>
+            <h2 id="campaigns-h" className="text-3xl sm:text-4xl">{christmasTheme ? 'Share a little Christmas joy' : 'Make a special moment shareable'}</h2>
+            <p className="mt-2 text-muted">{christmasTheme ? 'Create a Christmas letter link for family and friends to send greetings and pamasko.' : 'Create a link for someone you love and let their people send wishes and gifts.'}</p>
             {campaignError && <p role="status" className="mt-3 text-sm font-semibold text-flag">{campaignError}</p>}
-            <div className={`mt-5 grid gap-3 ${campaigns.length === 1 ? 'sm:max-w-sm sm:grid-cols-1' : campaigns.length === 2 ? 'sm:mx-auto sm:max-w-4xl sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
-              {campaigns.map((campaign) => (
+            <div className={`mt-5 grid gap-3 ${visibleCampaigns.length === 1 ? 'sm:max-w-sm sm:grid-cols-1' : visibleCampaigns.length === 2 ? 'sm:mx-auto sm:max-w-4xl sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+              {visibleCampaigns.map((campaign) => (
                 <CampaignCard
                   key={campaign.id}
                   campaign={campaign}
@@ -166,9 +182,9 @@ export default function Home() {
       )}
 
       <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6" aria-labelledby="how-h">
-        <h2 id="how-h" className="max-w-xl text-4xl sm:text-5xl">From blank page to full inbox in three steps</h2>
+        <h2 id="how-h" className="max-w-xl text-4xl sm:text-5xl">{christmasTheme ? 'From a blank page to a Christmas inbox in three steps' : 'From blank page to full inbox in three steps'}</h2>
         <ol className="mt-10 grid gap-5 md:grid-cols-3">
-          {STEPS.map((s, i) => (
+          {steps.map((s, i) => (
             <li key={s.t} className="card relative pt-9">
               <span className="absolute -top-5 left-5 grid h-11 w-11 place-items-center rounded-full border-2 border-ink bg-sun font-display text-xl font-extrabold">{i + 1}</span>
               <h3 className="text-2xl">{s.t}</h3>
@@ -181,7 +197,7 @@ export default function Home() {
       <section className="border-y-2 border-ink bg-accent text-white" aria-labelledby="gift-h">
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[1fr_1.1fr]">
           <div>
-            <h2 id="gift-h" className="text-4xl sm:text-5xl">Every wish shows up wrapped</h2>
+            <h2 id="gift-h" className="text-4xl sm:text-5xl">{christmasTheme ? 'Every greeting arrives as a gift' : 'Every wish shows up wrapped'}</h2>
             <p className="mt-4 max-w-md text-lg text-white/90">
               Friends pick a gift and write a message. You get a box to open, with the photo, the video, or the note inside.
             </p>
@@ -207,13 +223,15 @@ export default function Home() {
           <FlipCountdown target={Date.now() + 3 * 86400000 + 4 * 3600000 + 12 * 60000 + 30000} />
         </div>
         <div className="order-1 lg:order-2">
-          <h2 id="lock-h" className="text-4xl sm:text-5xl">Let the wishes pile up quietly</h2>
+          <h2 id="lock-h" className="text-4xl sm:text-5xl">{christmasTheme ? 'Save the Christmas greetings for the right moment' : 'Let the wishes pile up quietly'}</h2>
           <p className="mt-4 max-w-md text-lg text-muted">
-            Set a reveal time, like midnight on your birthday. Friends can send wishes early, and everyone sees a countdown. Nothing is readable until the clock runs out, not even by poking at the server.
+            {christmasTheme
+              ? 'Choose when to reveal the greetings. Family can send messages ahead of time, and everyone sees a countdown. They stay private until the moment arrives.'
+              : 'Set a reveal time, like midnight on your birthday. Friends can send wishes early, and everyone sees a countdown. Nothing is readable until the clock runs out, not even by poking at the server.'}
           </p>
           <ul className="mt-6 space-y-3 font-semibold">
             <li className="flex items-center gap-3"><Icon name="lock" className="text-accent" />Locked on our servers, not just on screen</li>
-            <li className="flex items-center gap-3"><Icon name="eye" className="text-accent" />Review wishes before they appear</li>
+            <li className="flex items-center gap-3"><Icon name="eye" className="text-accent" />{christmasTheme ? 'Review greetings before they appear' : 'Review wishes before they appear'}</li>
             <li className="flex items-center gap-3"><Icon name="qr" className="text-accent" />A QR code for cards and cake toppers</li>
           </ul>
         </div>
@@ -238,8 +256,8 @@ export default function Home() {
 
       <section data-theme={themeId || 'confetti'} className="relative overflow-hidden border-t-2 border-ink bg-ground py-20 text-center">
         <div className="mx-auto max-w-2xl px-4">
-          <h2 className="text-balance text-4xl sm:text-5xl">Your birthday deserves more than a group chat</h2>
-          <Link to="/create" className="btn-primary mt-8 px-8 py-4 text-lg">Write my letter</Link>
+          <h2 className="text-balance text-4xl sm:text-5xl">{christmasTheme ? 'Make this Christmas more memorable than a group chat' : 'Your birthday deserves more than a group chat'}</h2>
+          <Link to="/create" className="btn-primary mt-8 px-8 py-4 text-lg">{christmasTheme ? 'Write a Christmas letter' : 'Write my letter'}</Link>
         </div>
       </section>
 

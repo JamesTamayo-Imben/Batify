@@ -30,7 +30,7 @@ import { clearDraft, loadDraft, saveDraft } from '../lib/draft'
 import { hasOpened, markOpened, wishUnwrapped } from '../lib/opened'
 import { WishItem } from '../pages/PublicPage'
 import { DEFAULT_CUSTOM_COLOR, themeOf, themeStyleOf } from '../lib/themes'
-import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, millisecondsUntilManilaMidnight, priorityThemeFor, previewThemeForCampaign } from '../lib/campaigns'
+import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, millisecondsUntilManilaMidnight, OCCASIONS, priorityThemeFor, previewThemeForCampaign, upcomingCampaignDate } from '../lib/campaigns'
 import { isPageExpired } from '../lib/pages'
 import { sb } from '../lib/supabase'
 
@@ -115,6 +115,34 @@ describe('seasonal campaigns', () => {
     expect(isCampaignActive(holiday, new Date('2026-12-02T00:00:00+08:00'))).toBe(true)
     expect(isCampaignActive(holiday, new Date('2027-01-01T23:59:00+08:00'))).toBe(true)
     expect(isCampaignActive(holiday, new Date('2027-01-02T00:00:00+08:00'))).toBe(false)
+  })
+
+  it('defaults seasonal pages to the upcoming configured event date', () => {
+    expect(upcomingCampaignDate(
+      { id: 'christmas', end_month: 12, end_day: 25 },
+      new Date('2026-11-15T12:00:00+08:00'),
+    )).toBe('2026-12-25')
+    expect(upcomingCampaignDate(
+      { id: 'new_year', end_month: 1, end_day: 1 },
+      new Date('2026-12-20T12:00:00+08:00'),
+    )).toBe('2027-01-01')
+    expect(upcomingCampaignDate(
+      { id: 'christmas', end_month: 12, end_day: 25 },
+      new Date('2026-12-25T12:00:00+08:00'),
+    )).toBe('2026-12-25')
+    expect(upcomingCampaignDate(
+      { id: 'anniversary', end_month: 12, end_day: 31 },
+      new Date('2026-06-20T12:00:00+08:00'),
+    )).toBeNull()
+  })
+
+  it('uses Christmas-specific writing prompts and greeting language', () => {
+    const christmas = OCCASIONS.christmas
+    expect(christmas.starters.length).toBeGreaterThanOrEqual(8)
+    expect(christmas.starterHeading).toContain('Christmas')
+    expect(christmas.starters.join(' ').toLowerCase()).not.toContain('wish')
+    expect(christmas.messageLabel).toBe('Your Christmas greeting')
+    expect(christmas.collectionLabel).toBe('Christmas greetings')
   })
 
   it('applies priority themes only within enabled windows and lets Christmas win overlaps', () => {
@@ -250,6 +278,13 @@ describe('seasonal campaigns', () => {
     }
     const query = { select: vi.fn(() => query), eq: vi.fn(() => Promise.resolve({ data: [campaign], error: null })) }
     const from = vi.spyOn(sb, 'from').mockReturnValue(query)
+    const audio = {
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      pause: vi.fn(),
+      play: vi.fn(() => Promise.resolve()),
+    }
+    const audioConstructor = vi.spyOn(window, 'Audio').mockImplementation(() => audio)
 
     try {
       const { container, unmount } = render(<CampaignThemeProvider><p>Home</p></CampaignThemeProvider>)
@@ -267,6 +302,7 @@ describe('seasonal campaigns', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Turn on seasonal theme' }))
       expect(reloaded.container.firstElementChild.getAttribute('data-theme')).toBe('christmas')
     } finally {
+      audioConstructor.mockRestore()
       from.mockRestore()
     }
   })

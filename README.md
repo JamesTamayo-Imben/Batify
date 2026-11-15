@@ -63,8 +63,12 @@
   The Home hero and seasonal letters use event illustrations as their opening
   controls, with optional motion-sensor shake support where available. The
   Home page offers a browser-local Anniversary preview year-round and priority
-  previews only within their configured campaign windows. Previews do not
-  change event scheduling. Christmas uses falling branched snowflakes.
+  previews when their configured campaign is not already active. Active
+  priority themes do not show a redundant preview, and previews do not change
+  event scheduling. Christmas uses falling branched snowflakes, a locally
+  served audio track at 12% volume with a play/pause control, and Christmas
+  Day as the default letter date. Browser autoplay restrictions may require
+  visitors to start the audio manually.
 - A lightweight owner dashboard for page activity and wish management.
 - Dedicated About Batify, developer story, Contact, How it works, and FAQ pages
   linked from the responsive footer.

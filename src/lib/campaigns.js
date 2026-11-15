@@ -6,11 +6,32 @@ export const OCCASIONS = {
     priorityTheme: 'christmas',
     label: 'Christmas',
     dateLabel: 'Christmas date',
-    titlePlaceholder: 'Maria’s Christmas Pamasko',
-    shareText: 'Send a Christmas pamasko',
+    titlePlaceholder: 'Maria’s Christmas letter',
+    shareText: 'Send a Christmas greeting and pamasko',
     greeting: 'Merry Christmas',
+    messageLabel: 'Your Christmas greeting',
+    messageNoun: 'Christmas greeting',
+    collectionLabel: 'Christmas greetings',
+    sendHeading: 'Send Christmas greetings and gifts to',
+    lockedLabel: 'Christmas greetings unlock',
+    emptyMessages: 'No Christmas greetings yet. Be the first to send one below.',
+    lockedDescription: 'You can still send a Christmas greeting. It will be waiting.',
+    messageHint: 'Links are removed from messages.',
+    revealLabel: 'Reveal messages at',
+    revealHint: 'Messages and gifts stay hidden behind a countdown until this time. Leave it empty to show them right away.',
+    revealButton: 'Use midnight on Christmas',
     wishButton: 'Send pamasko',
-    starters: ['This Christmas, I wish you', 'Thank you for always', 'My favorite holiday memory is', 'My wish for your year ahead is'],
+    starterHeading: 'Need a little Christmas inspiration?',
+    starters: [
+      'This Christmas, I’m grateful for',
+      'One of my favorite memories with you is',
+      'My favorite part of celebrating together is',
+      'Thank you for bringing so much joy to',
+      'I hope your holiday season is filled with',
+      'Something I admire about you is',
+      'One tradition I hope we keep is',
+      'Here’s a little pamasko and a reminder that',
+    ],
     defaults: {
       flower: 'Holiday flowers',
       teddy: 'Christmas teddy',
@@ -30,8 +51,22 @@ export const OCCASIONS = {
     titlePlaceholder: 'A Halloween treat',
     shareText: 'Send a Halloween treat',
     greeting: 'Happy Halloween',
+    messageLabel: 'Your Halloween message',
+    messageNoun: 'Halloween message',
+    collectionLabel: 'Halloween messages',
+    revealLabel: 'Reveal messages at',
+    starterHeading: 'Need a little Halloween inspiration?',
     wishButton: 'Send a treat',
-    starters: ['My favorite costume memory is', 'I hope this Halloween brings you', 'The thing I appreciate most about you is', 'A little treat for you...'],
+    starters: [
+      'My favorite costume memory is',
+      'I hope this Halloween brings you',
+      'The thing I appreciate most about you is',
+      'A little treat for you',
+      'My favorite spooky story is',
+      'You make every October more fun by',
+      'I hope you get plenty of',
+      'My favorite Halloween tradition is',
+    ],
     defaults: {
       flower: 'Autumn flowers',
       teddy: 'Spooky teddy',
@@ -51,8 +86,22 @@ export const OCCASIONS = {
     titlePlaceholder: "A Valentine's surprise",
     shareText: "Send a Valentine's wish",
     greeting: 'Happy Valentine’s Day',
+    messageLabel: 'Your Valentine’s Day note',
+    messageNoun: 'Valentine’s Day note',
+    collectionLabel: 'Valentine’s Day notes',
+    revealLabel: 'Reveal messages at',
+    starterHeading: 'Need a little Valentine’s Day inspiration?',
     wishButton: 'Send a Valentine',
-    starters: ['I love how you', 'My favorite memory of us is', 'You make every day', 'I am grateful for'],
+    starters: [
+      'I love how you',
+      'My favorite memory of us is',
+      'You make every day',
+      'I am grateful for',
+      'I feel most cared for when you',
+      'One little thing I adore about you is',
+      'My favorite way to spend time with you is',
+      'Thank you for making my life',
+    ],
     defaults: {
       flower: 'Roses',
       teddy: 'Loveable teddy',
@@ -72,8 +121,22 @@ export const OCCASIONS = {
     titlePlaceholder: 'A wish for the New Year',
     shareText: 'Send a New Year wish',
     greeting: 'Happy New Year',
+    messageLabel: 'Your New Year message',
+    messageNoun: 'New Year message',
+    collectionLabel: 'New Year messages',
+    revealLabel: 'Reveal messages at',
+    starterHeading: 'Need a little New Year inspiration?',
     wishButton: 'Send a New Year wish',
-    starters: ['This New Year, I hope you', 'Thank you for being part of my year', 'One thing I want us to do this year is', 'Wishing you a year full of'],
+    starters: [
+      'This New Year, I hope you',
+      'Thank you for being part of my year',
+      'One thing I want us to do this year is',
+      'I hope the year ahead brings you',
+      'A moment from this past year I’ll remember is',
+      'Something I’m excited to do with you is',
+      'You made this year better by',
+      'Here’s to a fresh start and',
+    ],
     defaults: {
       flower: 'New Year flowers',
       teddy: 'New Year teddy',
@@ -94,6 +157,11 @@ export const OCCASIONS = {
     titlePlaceholder: 'Our anniversary',
     shareText: 'Send an anniversary wish',
     greeting: 'Happy anniversary',
+    messageLabel: 'Your anniversary message',
+    messageNoun: 'anniversary message',
+    collectionLabel: 'Anniversary messages',
+    revealLabel: 'Reveal messages at',
+    starterHeading: 'Need a little anniversary inspiration?',
     starters: ['My favorite memory of us is', 'Thank you for another year of', 'I still love when you', 'Here is to many more years of'],
     defaults: {
       flower: 'Anniversary flowers',
@@ -191,6 +259,26 @@ export function isEventDateWithin30Days(value, now = new Date()) {
   const eventDay = dateOrdinal(value)
   const today = manilaTodayOrdinal(now)
   return eventDay !== null && eventDay >= today && eventDay <= today + 30
+}
+
+export function upcomingCampaignDate(campaign, now = new Date()) {
+  if (!campaign || campaign.id === 'anniversary') return null
+  const month = Number(campaign.end_month)
+  const day = Number(campaign.end_day)
+  if (!Number.isInteger(month) || month < 1 || month > 12 ||
+    !Number.isInteger(day) || day < 1 || day > 31) return null
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  }).formatToParts(now)
+  const year = Number(parts.find((part) => part.type === 'year')?.value)
+  const todayMonth = Number(parts.find((part) => part.type === 'month')?.value)
+  const todayDay = Number(parts.find((part) => part.type === 'day')?.value)
+  const eventYear = month * 100 + day < todayMonth * 100 + todayDay ? year + 1 : year
+  return `${eventYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
 export function isCampaignActive(campaign, now = new Date()) {

@@ -56,7 +56,7 @@ function Ceremony({ page, onFinish, themeId }) {
   const skip = () => { setPhase('done'); onFinish() }
   return (
     <div ref={root} tabIndex={-1} className={`ceremony ${themeId ? 'is-seasonal' : ''} ${phase === 'rising' ? 'is-rising' : ''} ${phase === 'done' ? 'is-done' : ''}`} role="dialog" aria-modal="true" aria-label={`A letter from ${page.owner_name}`}>
-      <Banderitas className="absolute inset-x-0 top-0" count={11} />
+      {themeId !== 'christmas' && <Banderitas className="absolute inset-x-0 top-0" count={11} />}
       <button type="button" onClick={skip} className="btn-ghost btn-sm absolute bottom-6 right-4 z-30">Skip</button>
       <div className={`ceremony-stage text-center ${themeId ? 'has-seasonal-opener' : ''}`}>
         {themeId ? (
@@ -84,7 +84,7 @@ function Ceremony({ page, onFinish, themeId }) {
 }
 
 /* ------------------------------------------------------------------- wishes */
-function WishCard({ wish, animate, closing, onWrap, giftOptions }) {
+function WishCard({ wish, animate, closing, onWrap, giftOptions, wishLabel }) {
   return (
     <article className={`${animate ? 'unwrap-card' : ''} ${closing ? 'wrap-card' : ''} rounded-2xl border-2 border-ink bg-white p-5 shadow-sticker`}>
       <div className="flex items-center gap-3">
@@ -99,13 +99,13 @@ function WishCard({ wish, animate, closing, onWrap, giftOptions }) {
       {wish.media_url && wish.media_type === 'video' && <video src={wish.media_url} controls playsInline preload="metadata" className="mt-3 w-full rounded-xl border-2 border-ink bg-black" />}
       <div className="mt-2 flex items-center justify-between gap-2">
         <button type="button" className="btn-ghost btn-sm" onClick={onWrap} disabled={closing}>Wrap gift</button>
-        <ReportWish wishId={wish.id} />
+        <ReportWish wishId={wish.id} wishLabel={wishLabel} />
       </div>
     </article>
   )
 }
 
-export function WishItem({ wish, index, bulkAction, bulkToken, fresh, giftOptions, eventTheme }) {
+export function WishItem({ wish, index, bulkAction, bulkToken, fresh, giftOptions, eventTheme, wishLabel }) {
   const [open, setOpen] = useState(() => wishUnwrapped(wish.id))
   const [lid, setLid] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -150,7 +150,7 @@ export function WishItem({ wish, index, bulkAction, bulkToken, fresh, giftOption
     clearTimeout(wrapTimer.current)
   }, [])
 
-  if (open) return <WishCard wish={wish} animate={lid} closing={closing} onWrap={wrap} giftOptions={giftOptions} />
+  if (open) return <WishCard wish={wish} animate={lid} closing={closing} onWrap={wrap} giftOptions={giftOptions} wishLabel={wishLabel} />
   return (
     <button ref={btn} type="button" onClick={unwrap} aria-label={`Unwrap the gift from ${wish.sender_name}`}
       className={`${fresh ? 'drop-in' : ''} group flex min-h-[210px] flex-col items-center justify-end rounded-2xl border-2 border-ink bg-white px-4 pb-4 pt-8 text-center shadow-sticker transition-transform hover:-translate-y-1`}>
@@ -203,6 +203,7 @@ function ScheduledLetter({ opensAt, themeId }) {
 function SendWishForm({ page, revealed, giftOptions }) {
   const { themeId } = useCampaignTheme()
   const occasion = occasionOf(page.campaign_type)
+  const messageNoun = occasion?.messageNoun || 'wish'
   const [name, setName] = useState('')
   const [message, setMessage] = useState('')
   const [gift, setGift] = useState(() => Object.keys(giftOptions || {})[0] || 'flower')
@@ -238,7 +239,7 @@ function SendWishForm({ page, revealed, giftOptions }) {
 
   if (sent) {
     const text = sent.is_approved
-      ? revealed ? `Your wish is now on ${page.owner_name}'s page.` : `Saved. It will appear when the page is revealed on ${formatDateTime(page.reveal_at)}.`
+      ? revealed ? `Your ${messageNoun} is now on ${page.owner_name}'s page.` : `Saved. It will appear when the page is revealed on ${formatDateTime(page.reveal_at)}.`
       : `Thank you. ${page.owner_name} will review it before it appears on the page.`
     return <Sent gift={gift} text={text} onAgain={again} theme={themeId} />
   }
@@ -264,9 +265,9 @@ function SendWishForm({ page, revealed, giftOptions }) {
         <input id="senderName" className="field" required maxLength={60} value={name} onChange={(e) => setName(e.target.value)} placeholder="Juan" autoComplete="given-name" />
       </div>
       <div>
-        <label className="label" htmlFor="message">3. Your wish <span className="font-normal text-muted">(optional)</span></label>
+        <label className="label" htmlFor="message">3. {occasion?.messageLabel || 'Your wish'} <span className="font-normal text-muted">(optional)</span></label>
         <textarea id="message" className="field min-h-[120px] font-letter text-lg" maxLength={1000} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={`${occasion?.greeting || 'Happy birthday'}, ${page.owner_name.split(' ')[0]}!`} aria-describedby="msg-hint" />
-        <p id="msg-hint" className="hint">Links are removed from wishes.</p>
+        <p id="msg-hint" className="hint">{occasion?.messageHint || 'Links are removed from wishes.'}</p>
       </div>
       <Turnstile ref={ts} onToken={setToken} onError={setError} />
       {error && <p role="alert" className="rounded-lg border-2 border-flag bg-red-50 p-3 text-sm font-semibold text-flag">{error}</p>}
@@ -470,7 +471,7 @@ export default function PublicPage() {
       {ceremony && <Ceremony page={page} onFinish={finishCeremony} themeId={priorityTheme} />}
 
       <header className="relative overflow-hidden border-b-2 border-ink bg-ground px-4 pb-24 pt-28 text-center">
-        <Banderitas className="absolute inset-x-0 top-0" count={11} />
+        {priorityTheme !== 'christmas' && <Banderitas className="absolute inset-x-0 top-0" count={11} />}
         <div className="relative mx-auto max-w-2xl">
           <p className="text-lg font-bold">{formatDate(page.birthday_date)}</p>
           <h1 className="mt-2 text-balance text-5xl sm:text-6xl">{page.title}</h1>
@@ -500,16 +501,18 @@ export default function PublicPage() {
         </section>
 
         {!revealed ? (
-          <section aria-label="Wishes locked" className="rounded-3xl border-2 border-ink bg-ground p-6 text-center sm:p-10">
+          <section aria-label={occasion?.lockedLabel || 'Wishes locked'} className="rounded-3xl border-2 border-ink bg-ground p-6 text-center sm:p-10">
             <Icon name="lock" size={30} className="mx-auto" />
-            <h2 className="mt-2 text-3xl sm:text-4xl">Wishes unlock {formatDateTime(page.reveal_at)}</h2>
-            <p className="mx-auto mb-7 mt-2 max-w-md">You can still send yours. It will be waiting.</p>
+            <h2 className="mt-2 text-3xl sm:text-4xl">{occasion?.lockedLabel || 'Wishes unlock'} {formatDateTime(page.reveal_at)}</h2>
+            <p className="mx-auto mb-7 mt-2 max-w-md">{occasion?.lockedDescription || 'You can still send yours. It will be waiting.'}</p>
             <FlipCountdown target={page.reveal_at} onDone={onCountdownDone} />
           </section>
         ) : (
           <section aria-labelledby="wishes-h">
             <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-              <h2 id="wishes-h" className="text-3xl sm:text-4xl">{wishes.length ? `${wishes.length} ${wishes.length === 1 ? 'wish' : 'wishes'} for ${first}` : 'Wishes'}</h2>
+              <h2 id="wishes-h" className="text-3xl sm:text-4xl">{wishes.length
+                ? `${wishes.length} ${wishes.length === 1 ? occasion?.messageNoun || 'wish' : occasion?.collectionLabel || 'wishes'} for ${first}`
+                : occasion?.collectionLabel || 'Wishes'}</h2>
               {wishes.length > 0 && (
                 <div className="flex gap-2">
                   <button type="button" className="btn-sun btn-sm" onClick={() => runBulkAction('unwrap')}><Icon name="gift" size={18} />Unwrap all</button>
@@ -518,17 +521,19 @@ export default function PublicPage() {
               )}
             </div>
             {wishes.length === 0 ? (
-              <div className="card text-center text-muted">No wishes yet. Be the first to send one below.</div>
+              <div className="card text-center text-muted">{occasion?.emptyMessages || 'No wishes yet. Be the first to send one below.'}</div>
             ) : (
               <div className="grid gap-5 sm:grid-cols-2">
-                {wishes.map((w, i) => <WishItem key={w.id} wish={w} index={i} bulkAction={bulkCommand.action} bulkToken={bulkCommand.token} fresh={fresh.has(w.id)} eventTheme={priorityTheme} />)}
+                {wishes.map((w, i) => <WishItem key={w.id} wish={w} index={i} bulkAction={bulkCommand.action} bulkToken={bulkCommand.token} fresh={fresh.has(w.id)} eventTheme={priorityTheme} wishLabel={occasion?.messageNoun || 'wish'} />)}
               </div>
             )}
           </section>
         )}
 
         <section aria-labelledby="send-h">
-          <h2 id="send-h" className="mb-5 text-3xl sm:text-4xl">{occasion ? `Send ${occasion.label} gifts to ${first}` : `Send a wish to ${first}`}</h2>
+          <h2 id="send-h" className="mb-5 text-3xl sm:text-4xl">{occasion?.sendHeading
+            ? `${occasion.sendHeading} ${first}`
+            : occasion ? `Send ${occasion.label} gifts to ${first}` : `Send a wish to ${first}`}</h2>
           {campaignError && <p role="status" className="mb-3 text-sm text-flag">{campaignError}</p>}
           <SendWishForm page={page} revealed={revealed} giftOptions={giftOptions} />
         </section>

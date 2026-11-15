@@ -4,7 +4,7 @@ import { postForm } from '../lib/ajax'
 
 const REASONS = ['Inappropriate', 'Spam', 'Harassment', 'Other']
 
-export default function ReportWish({ wishId }) {
+export default function ReportWish({ wishId, wishLabel = 'wish' }) {
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState(REASONS[0])
   const [token, setToken] = useState('')
@@ -14,7 +14,7 @@ export default function ReportWish({ wishId }) {
   const ts = useRef(null)
 
   if (done) return <p className="text-sm text-muted">Reported. Thank you.</p>
-  if (!open) return <button onClick={() => setOpen(true)} className="min-h-[44px] px-1 text-sm font-semibold text-muted underline underline-offset-4 hover:text-ink">Report this wish</button>
+  if (!open) return <button onClick={() => setOpen(true)} className="min-h-[44px] px-1 text-sm font-semibold text-muted underline underline-offset-4 hover:text-ink">Report this {wishLabel}</button>
 
   async function submit() {
     setBusy(true); setError('')
