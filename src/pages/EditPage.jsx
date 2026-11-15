@@ -17,6 +17,14 @@ import { sb } from '../lib/supabase'
 import { isPageExpired } from '../lib/pages'
 import useTitle from '../lib/useTitle'
 
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || ''
+
+function applicationServerKey(value) {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')
+  return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0))
+}
+
 function Toggle({ checked, onChange, label, hint, disabled }) {
   return (
     <label className="flex cursor-pointer items-start justify-between gap-4">
@@ -321,7 +329,75 @@ function SettingsTab({ page, setData, run, call, busy, token, expired, dateLabel
     is_published: !!page.is_published,
   })
   const [qrError, setQrError] = useState('')
+  const [pushEnabled, setPushEnabled] = useState(null)
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushError, setPushError] = useState('')
+  const pushSupported = typeof window !== 'undefined' &&
+    'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && !!VAPID_PUBLIC_KEY
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }))
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadPushStatus() {
+      if (!pushSupported) {
+        setPushEnabled(false)
+        return
+      }
+      try {
+        const registration = await navigator.serviceWorker.ready
+        const subscription = await registration.pushManager.getSubscription()
+        if (!subscription) {
+          if (!cancelled) setPushEnabled(false)
+          return
+        }
+        const result = await call('push-status', { endpoint: subscription.endpoint })
+        if (!cancelled) setPushEnabled(result.enabled)
+      } catch (error) {
+        if (!cancelled) {
+          setPushError(error.message)
+          setPushEnabled(false)
+        }
+      }
+    }
+    loadPushStatus()
+    return () => { cancelled = true }
+  }, [call, pushSupported])
+
+  async function togglePush() {
+    if (pushBusy) return
+    setPushBusy(true)
+    setPushError('')
+    try {
+      if (pushEnabled) {
+        const registration = await navigator.serviceWorker.ready
+        const subscription = await registration.pushManager.getSubscription()
+        if (subscription) await call('push-unsubscribe', { endpoint: subscription.endpoint })
+        setPushEnabled(false)
+        return
+      }
+      if (Notification.permission === 'denied') {
+        throw new Error('Notifications are blocked in your browser settings.')
+      }
+      const permission = Notification.permission === 'granted'
+        ? 'granted'
+        : await Notification.requestPermission()
+      if (permission !== 'granted') throw new Error('Notification permission was not granted.')
+      const registration = await navigator.serviceWorker.ready
+      let subscription = await registration.pushManager.getSubscription()
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: applicationServerKey(VAPID_PUBLIC_KEY),
+        })
+      }
+      await call('push-subscribe', { subscription: subscription.toJSON() })
+      setPushEnabled(true)
+    } catch (error) {
+      setPushError(error.message)
+    } finally {
+      setPushBusy(false)
+    }
+  }
 
   const save = (e) => {
     e.preventDefault()
@@ -402,6 +478,22 @@ function SettingsTab({ page, setData, run, call, busy, token, expired, dateLabel
       </div>
 
       <div className="space-y-4 border-t border-slate-100 pt-5">
+        <section aria-labelledby="push-settings-heading" className="rounded-xl border-2 border-ink/15 bg-white p-4">
+          <h3 id="push-settings-heading" className="font-bold">Gift notifications</h3>
+          <p className="mt-1 text-sm text-slate-600">Get an alert when someone sends a wish, gift, or GCash contribution.</p>
+          {!pushSupported ? (
+            <p className="mt-3 text-sm font-semibold text-slate-600">
+              {!VAPID_PUBLIC_KEY
+                ? 'Push notifications are not configured for this app yet.'
+                : 'Push notifications are not supported in this browser.'}
+            </p>
+          ) : (
+            <button type="button" className="btn-ghost btn-sm mt-3" disabled={pushBusy || pushEnabled === null} onClick={togglePush}>
+              {pushBusy ? 'Updating…' : pushEnabled === null ? 'Checking…' : pushEnabled ? 'Turn off notifications' : 'Enable notifications'}
+            </button>
+          )}
+          {pushError && <p className="mt-2 text-sm font-semibold text-red-600" role="alert">{pushError}</p>}
+        </section>
         <Toggle label="Auto-approve wishes" hint="New wishes appear without your review." checked={f.auto_approve_wishes} onChange={(v) => setF((p) => ({ ...p, auto_approve_wishes: v }))} />
         <Toggle
           label="Page is published"

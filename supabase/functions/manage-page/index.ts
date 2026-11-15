@@ -72,6 +72,67 @@ Deno.serve(async (req) => {
         });
       }
 
+      // ----------------------------------------------------- push notifications
+      case "push-status": {
+        const endpoint = clean(body.endpoint, 2048);
+        if (!endpoint) return json({ enabled: false });
+        const { data, error } = await sb.from("push_subscriptions").select("id")
+          .eq("page_id", page.id).eq("endpoint", endpoint).maybeSingle();
+        if (error) {
+          console.error("Could not check push subscription:", error);
+          return json({ error: "Could not check notification settings." }, 500);
+        }
+        return json({ enabled: !!data });
+      }
+
+      case "push-subscribe": {
+        const subscription = body.subscription as Record<string, unknown> | undefined;
+        const endpoint = typeof subscription?.endpoint === "string" ? subscription.endpoint : "";
+        const keys = subscription?.keys as Record<string, unknown> | undefined;
+        const p256dh = typeof keys?.p256dh === "string" ? keys.p256dh : "";
+        const auth = typeof keys?.auth === "string" ? keys.auth : "";
+        let validEndpoint = false;
+        try {
+          const parsed = new URL(endpoint);
+          const host = parsed.hostname.toLowerCase();
+          const trustedPushHost = host === "fcm.googleapis.com" ||
+            host === "updates.push.services.mozilla.com" ||
+            host.endsWith(".push.services.mozilla.com") ||
+            host === "web.push.apple.com" ||
+            host.endsWith(".push.apple.com") ||
+            host.endsWith(".notify.windows.com");
+          validEndpoint = parsed.protocol === "https:" && !parsed.port &&
+            !parsed.username && !parsed.password && trustedPushHost;
+        } catch { /* Invalid push endpoints are rejected below. */ }
+        if (!validEndpoint || endpoint.length > 2048 ||
+          !/^[A-Za-z0-9_-]{80,100}$/.test(p256dh) ||
+          !/^[A-Za-z0-9_-]{16,32}$/.test(auth)) {
+          return json({ error: "Invalid push subscription." }, 400);
+        }
+        const { error } = await sb.from("push_subscriptions").upsert({
+          page_id: page.id, endpoint, p256dh, auth,
+        }, { onConflict: "page_id,endpoint" });
+        if (error) {
+          console.error("Could not save push subscription:", error);
+          return json({ error: "Could not enable notifications." }, 500);
+        }
+        return json({ ok: true });
+      }
+
+      case "push-unsubscribe": {
+        const endpoint = clean(body.endpoint, 2048);
+        if (!endpoint || !endpoint.startsWith("https://")) {
+          return json({ error: "Invalid push endpoint." }, 400);
+        }
+        const { error } = await sb.from("push_subscriptions").delete()
+          .eq("page_id", page.id).eq("endpoint", endpoint);
+        if (error) {
+          console.error("Could not remove push subscription:", error);
+          return json({ error: "Could not turn off notifications." }, 500);
+        }
+        return json({ ok: true });
+      }
+
       // --------------------------------------------------------------- update
       case "update": {
         const p = (body.patch && typeof body.patch === "object" ? body.patch : body) as Record<string, unknown>;

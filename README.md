@@ -110,7 +110,13 @@ Edit `.env.local` and provide the values described in
 2. In the Supabase project, allow the app's production hostname in the settings
    required by your project and ensure the required tables are available through
    the API.
-3. Install and authenticate the Supabase CLI, link this repository to the
+3. Generate a VAPID key pair with `npx web-push generate-vapid-keys`. Set the
+   public key as `VITE_VAPID_PUBLIC_KEY` in `.env.local` and in the frontend
+   hosting provider's build environment. Keep the matching public/private keys
+   and a `mailto:` subject handy for the Supabase secrets below. Do not rotate
+   the keys while subscriptions are active; existing devices must subscribe
+   again after a key change.
+4. Install and authenticate the Supabase CLI, link this repository to the
    project, configure the server-side secrets, and deploy the Edge Functions:
 
    ```powershell
@@ -118,6 +124,7 @@ Edit `.env.local` and provide the values described in
    npx supabase link --project-ref <your-project-ref>
    npx supabase secrets set TURNSTILE_SECRET_KEY=<turnstile-secret>
    npx supabase secrets set ADMIN_SECRET=<long-random-secret>
+   npx supabase secrets set VAPID_PUBLIC_KEY=<vapid-public-key> VAPID_PRIVATE_KEY=<vapid-private-key> VAPID_SUBJECT=mailto:you@example.com
    npx supabase functions deploy create-page
    npx supabase functions deploy send-wish
    npx supabase functions deploy manage-page
@@ -129,7 +136,7 @@ Edit `.env.local` and provide the values described in
    Functions. The service-role key belongs on the server only; never place it in
    `.env.local` or any `VITE_*` variable.
 
-4. Add each production hostname to Cloudflare Turnstile Hostname Management.
+5. Add each production hostname to Cloudflare Turnstile Hostname Management.
    For the current production site, add `batify.site.je`. Add `www.batify.site.je`
    only if you intend to serve the app from that hostname too. Set the
    corresponding **site key** in `VITE_TURNSTILE_SITE_KEY` and the matching
@@ -162,7 +169,12 @@ titles, descriptions, enablement, priority themes, and suggested gift labels.
 Priority themes activate automatically inside their configured window using
 Philippine time. Re-run `schema.sql` on existing projects before deploying the
 updated Edge Functions and frontend; it safely adds the campaign table, page
-occasion column, and priority flag.
+occasion column, priority flag, and private push-subscription table. Visitors
+can turn off the automatic seasonal theme for the current device. Page owners
+can opt in to PWA push alerts for new wishes/gifts and GCash contributions in
+their dashboard settings. Push permission requires HTTPS and is not available
+from the Vite development server; use a production build and `npm run preview`
+to test the service worker locally.
 
 ## Environment variables
 
@@ -174,6 +186,7 @@ The client template is [`.env.local.example`](.env.local.example). Copy it to
 | `VITE_SUPABASE_URL` | Supabase project URL. |
 | `VITE_SUPABASE_ANON_KEY` | Public Supabase publishable/anon key. |
 | `VITE_TURNSTILE_SITE_KEY` | Public Turnstile site key for the deployed hostname. |
+| `VITE_VAPID_PUBLIC_KEY` | Public VAPID key used when subscribing to push alerts. |
 | `VITE_SITE_URL` | Canonical site URL used for absolute social metadata; production is `https://batify.site.je`. |
 | `VITE_ADSENSE_CLIENT` | Optional AdSense publisher ID. |
 | `VITE_ADSENSE_SLOT_HOME` | Optional AdSense slot for the home page. |
@@ -182,8 +195,8 @@ The client template is [`.env.local.example`](.env.local.example). Copy it to
 
 Vite embeds `VITE_*` values in browser assets. Only use public values in these
 variables. **Never use a Supabase secret/service-role key, Turnstile secret, or
-`ADMIN_SECRET` in a `VITE_*` variable.** The build rejects a Supabase key with
-the `sb_secret_` prefix.
+`ADMIN_SECRET` or VAPID private key in a `VITE_*` variable.** The build rejects
+a Supabase key with the `sb_secret_` prefix.
 
 `.env.local` is ignored by Git; do not upload it to web hosting or commit it.
 

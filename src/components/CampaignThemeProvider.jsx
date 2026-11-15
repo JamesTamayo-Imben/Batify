@@ -17,6 +17,14 @@ export function useCampaignTheme() {
 export default function CampaignThemeProvider({ children }) {
   const [themeId, setThemeId] = useState(null)
   const [previewThemeId, setPreviewThemeId] = useState(null)
+  const [systemThemeDisabled, setSystemThemeDisabled] = useState(() => {
+    try {
+      return localStorage.getItem('batify:disable-seasonal-theme') === 'true'
+    } catch (error) {
+      console.warn('Could not read the local seasonal theme preference:', error)
+      return false
+    }
+  })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -61,8 +69,19 @@ export default function CampaignThemeProvider({ children }) {
     }
   }, [])
 
-  const activeThemeId = previewThemeId || themeId
+  const activeThemeId = previewThemeId || (systemThemeDisabled ? null : themeId)
   const previewLabel = occasionOf(previewThemeId)?.label || previewThemeId
+  const systemThemeLabel = occasionOf(themeId)?.label || themeId
+  function toggleSystemTheme() {
+    const disabled = !systemThemeDisabled
+    try {
+      localStorage.setItem('batify:disable-seasonal-theme', String(disabled))
+      setSystemThemeDisabled(disabled)
+    } catch (error) {
+      console.error('Could not save the local seasonal theme preference:', error)
+    }
+  }
+
   return (
     <CampaignThemeContext.Provider value={{ themeId: activeThemeId, previewThemeId, setPreviewThemeId, loading }}>
       <div data-theme={activeThemeId || 'confetti'} className="min-h-dvh bg-paper">
@@ -76,6 +95,16 @@ export default function CampaignThemeProvider({ children }) {
               onClick={() => setPreviewThemeId(null)}
             >
               Turn off preview
+            </button>
+          </div>
+        )}
+        {!previewThemeId && themeId && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-ink bg-sun px-4 py-2 text-sm font-semibold text-ink">
+            <p role="status">{systemThemeDisabled
+              ? `Seasonal themes are off on this device. ${systemThemeLabel} is active today.`
+              : `${systemThemeLabel} theme is active today.`}</p>
+            <button type="button" className="btn-ghost btn-sm shrink-0" onClick={toggleSystemTheme}>
+              {systemThemeDisabled ? 'Turn on seasonal theme' : 'Turn off on this device'}
             </button>
           </div>
         )}

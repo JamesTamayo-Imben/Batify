@@ -65,6 +65,18 @@ create table if not exists public.reports (
 );
 create index if not exists reports_wish_idx on public.reports (wish_id);
 
+create table if not exists public.push_subscriptions (
+  id         uuid primary key default gen_random_uuid(),
+  page_id    uuid not null references public.pages(id) on delete cascade,
+  endpoint   text not null,
+  p256dh     text not null,
+  auth       text not null,
+  created_at timestamptz not null default now(),
+  unique (page_id, endpoint),
+  check (endpoint ~ '^https://')
+);
+create index if not exists push_subscriptions_page_idx on public.push_subscriptions (page_id);
+
 -- ---------------------------------------------------------------------------
 -- ROW LEVEL SECURITY
 -- All writes happen in Edge Functions using the service_role key (bypasses RLS).
@@ -78,6 +90,8 @@ alter table public.pages         enable row level security;
 alter table public.wishes        enable row level security;
 alter table public.contributions enable row level security;
 alter table public.reports       enable row level security;
+alter table public.push_subscriptions enable row level security;
+revoke all on public.push_subscriptions from anon, authenticated;
 
 drop policy if exists pages_public_read on public.pages;
 create policy pages_public_read on public.pages

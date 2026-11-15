@@ -225,6 +225,46 @@ describe('seasonal campaigns', () => {
     expect(screen.getByRole('button', { name: /Preview Anniversary theme/ }).getAttribute('aria-pressed')).toBe('false')
   })
 
+  it('lets visitors turn off and restore the system seasonal theme on this device', async () => {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      month: 'numeric',
+      day: 'numeric',
+    }).formatToParts(new Date())
+    const month = Number(parts.find((part) => part.type === 'month').value)
+    const day = Number(parts.find((part) => part.type === 'day').value)
+    const campaign = {
+      id: 'christmas',
+      is_enabled: true,
+      is_priority: true,
+      start_month: month,
+      start_day: day,
+      end_month: month,
+      end_day: day,
+    }
+    const query = { select: vi.fn(() => query), eq: vi.fn(() => Promise.resolve({ data: [campaign], error: null })) }
+    const from = vi.spyOn(sb, 'from').mockReturnValue(query)
+
+    try {
+      const { container, unmount } = render(<CampaignThemeProvider><p>Home</p></CampaignThemeProvider>)
+      await waitFor(() => expect(from).toHaveBeenCalledWith('campaign_events'))
+      await waitFor(() => expect(container.firstElementChild.getAttribute('data-theme')).toBe('christmas'))
+
+      fireEvent.click(screen.getByRole('button', { name: 'Turn off on this device' }))
+      expect(container.firstElementChild.getAttribute('data-theme')).toBe('confetti')
+      expect(localStorage.getItem('batify:disable-seasonal-theme')).toBe('true')
+
+      unmount()
+      const reloaded = render(<CampaignThemeProvider><p>Home</p></CampaignThemeProvider>)
+      await waitFor(() => expect(reloaded.container.firstElementChild.getAttribute('data-theme')).toBe('confetti'))
+      expect(screen.getByRole('button', { name: 'Turn on seasonal theme' })).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: 'Turn on seasonal theme' }))
+      expect(reloaded.container.firstElementChild.getAttribute('data-theme')).toBe('christmas')
+    } finally {
+      from.mockRestore()
+    }
+  })
+
   it('keeps a local preview easy to turn off after leaving the campaign card', async () => {
     const query = { select: vi.fn(() => query), eq: vi.fn(() => Promise.resolve({ data: [], error: null })) }
     const from = vi.spyOn(sb, 'from').mockReturnValue(query)

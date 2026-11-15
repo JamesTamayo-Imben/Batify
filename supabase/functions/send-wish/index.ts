@@ -6,6 +6,7 @@ import {
   checkUpload, clean, clientIp, json, MEDIA_MAX, MEDIA_MIMES, PROOF_MAX, PROOF_MIMES,
   preflight, rateLimitDurable, serviceClient, stripUrls, verifyTurnstile,
 } from "../_shared/common.ts";
+import { notifyPageOwner } from "../_shared/push.ts";
 
 const GIFTS = ["flower", "teddy", "chocolate", "cake", "coffee", "book", "balloon", "media"];
 
@@ -84,6 +85,10 @@ Deno.serve(async (req) => {
         await sb.storage.from("payment-proofs").remove([path]);
         return json({ error: "Could not record your contribution." }, 500);
       }
+      await notifyPageOwner(sb, page.id, {
+        title: "New GCash contribution",
+        body: `${senderName} sent a GCash contribution.`,
+      });
       return json({ contribution: { id: data.id } });
     }
 
@@ -138,6 +143,10 @@ Deno.serve(async (req) => {
       console.error(error);
       return json({ error: "Could not save your wish." }, 500);
     }
+    await notifyPageOwner(sb, page.id, {
+      title: "New gift on Batify",
+      body: `${senderName} sent a ${giftType} gift.`,
+    });
     return json({ wish: { id: data.id, is_approved: data.is_approved } });
   } catch (e) {
     console.error(e);
