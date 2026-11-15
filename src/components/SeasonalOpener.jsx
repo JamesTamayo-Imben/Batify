@@ -8,6 +8,14 @@ const EVENT_NAMES = {
   anniversary: 'anniversary rings',
 }
 
+const GIFT_PALETTES = {
+  christmas: { box: '#C92F20', ribbon: '#F7C531' },
+  halloween: { box: '#6A3F86', ribbon: '#F28C28' },
+  valentines: { box: '#C92F52', ribbon: '#FFE5E8' },
+  new_year: { box: '#174970', ribbon: '#F7C531' },
+  anniversary: { box: '#C98B57', ribbon: '#F7D983' },
+}
+
 function SeasonalMark({ theme, className = '' }) {
   if (theme === 'christmas') {
     return (
@@ -59,11 +67,12 @@ export function EventMark({ theme, className = '' }) {
   return <SeasonalMark theme={theme} className={className} />
 }
 
-export default function SeasonalOpener({ theme, title, step, onActivate }) {
+export default function SeasonalOpener({ theme, title, letterText, step, onActivate, className = '' }) {
   const [shakeEnabled, setShakeEnabled] = useState(false)
   const [message, setMessage] = useState('')
   const lastShake = useRef(0)
   const name = EVENT_NAMES[theme] || 'event icon'
+  const giftPalette = GIFT_PALETTES[theme] || GIFT_PALETTES.christmas
 
   useEffect(() => {
     if (!shakeEnabled) return undefined
@@ -101,15 +110,16 @@ export default function SeasonalOpener({ theme, title, step, onActivate }) {
   }
 
   return (
-    <div className={`seasonal-opener ${step > 0 ? 'is-opening' : ''}`}>
+    <div className={`seasonal-opener ${className} ${step > 0 ? 'is-opening' : ''}`}>
       <div className="seasonal-letter" aria-hidden="true">
         <span>A letter for you</span>
         <strong>{title}</strong>
+        {letterText && <p>{letterText}</p>}
       </div>
       <svg className="seasonal-gift" viewBox="0 0 80 80" aria-hidden="true">
-        <path d="M14 34h52v38H14z" fill="#C92F20" stroke="#14142B" strokeWidth="3" />
-        <path d="M35 34v38m-21-26h52" stroke="#F7C531" strokeWidth="7" />
-        <path d="M40 33C18 27 19 9 31 12c8 2 9 15 9 21zm0 0c22-6 21-24 9-21-8 2-9 15-9 21z" fill="#176B45" stroke="#14142B" strokeWidth="3" />
+        <path d="M14 34h52v38H14z" fill={giftPalette.box} stroke="#14142B" strokeWidth="3" />
+        <path d="M35 34v38m-21-26h52" stroke={giftPalette.ribbon} strokeWidth="7" />
+        <path d="M40 33C18 27 19 9 31 12c8 2 9 15 9 21zm0 0c22-6 21-24 9-21-8 2-9 15-9 21z" fill={giftPalette.ribbon} stroke="#14142B" strokeWidth="3" />
       </svg>
       <button
         type="button"

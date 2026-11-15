@@ -16,6 +16,7 @@ import GiftBox3D from '../components/GiftBox3D'
 import GiftPicker from '../components/GiftPicker'
 import SeasonalOpener from '../components/SeasonalOpener'
 import Snowfall from '../components/Snowfall'
+import { LogoMark } from '../components/Logo'
 import ThemePicker from '../components/ThemePicker'
 import CampaignSettings from '../components/CampaignEditor'
 import Turnstile from '../components/Turnstile'
@@ -147,7 +148,7 @@ describe('seasonal campaigns', () => {
       return (
         <CampaignCard
           campaign={{ id, title: label, description: 'Share a link', is_priority: true }}
-          isActive={false}
+          isActive
           previewThemeId={previewThemeId}
           setPreviewThemeId={setPreviewThemeId}
         />
@@ -167,6 +168,33 @@ describe('seasonal campaigns', () => {
     expect(previewThemeForCampaign({ id: 'christmas', is_priority: true })).toBe('christmas')
     expect(previewThemeForCampaign({ id: 'christmas', is_priority: false })).toBeNull()
     expect(previewThemeForCampaign({ id: 'anniversary', is_priority: false })).toBe('anniversary')
+  })
+
+  it('hides out-of-window priority previews but keeps the Anniversary preview available', () => {
+    const setPreviewThemeId = vi.fn()
+    const { rerender } = render(
+      <MemoryRouter>
+        <CampaignCard
+          campaign={{ id: 'christmas', title: 'Christmas', description: 'Holiday wishes', is_priority: true }}
+          isActive={false}
+          previewThemeId={null}
+          setPreviewThemeId={setPreviewThemeId}
+        />
+      </MemoryRouter>,
+    )
+    expect(screen.queryByRole('button', { name: 'Preview Christmas theme' })).toBeNull()
+
+    rerender(
+      <MemoryRouter>
+        <CampaignCard
+          campaign={{ id: 'anniversary', title: 'Anniversary', description: 'Share a link' }}
+          isActive={false}
+          previewThemeId={null}
+          setPreviewThemeId={setPreviewThemeId}
+        />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('button', { name: 'Preview Anniversary theme' })).toBeTruthy()
   })
 
   it('lets visitors toggle a local Anniversary preview without changing priority rules', () => {
@@ -327,6 +355,13 @@ describe('seasonal opening', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tap the Christmas tree to open the letter' }))
     expect(onActivate).toHaveBeenCalledOnce()
     expect(screen.getByRole('button', { name: 'Enable shake to open' })).toBeTruthy()
+  })
+
+  describe('brand mark', () => {
+    it('renders the smiling envelope used for Batify branding', () => {
+      const { container } = render(<LogoMark />)
+      expect(container.querySelector('.logo-smile')).toBeTruthy()
+    })
   })
 
   it.each([

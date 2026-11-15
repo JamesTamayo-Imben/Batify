@@ -60,10 +60,11 @@
 - Priority seasonal campaigns switch the whole site to their event colors and
   decorations during their configured Philippine-time window. Christmas wins
   when its window overlaps New Year; Anniversary is never a priority event.
-  Seasonal letters use an event illustration as the opening control, with
-  optional motion-sensor shake support where available. The Home page offers
-  browser-local previews for Anniversary and enabled priority campaigns; they
-  do not change event scheduling. Christmas uses falling branched snowflakes.
+  The Home hero and seasonal letters use event illustrations as their opening
+  controls, with optional motion-sensor shake support where available. The
+  Home page offers a browser-local Anniversary preview year-round and priority
+  previews only within their configured campaign windows. Previews do not
+  change event scheduling. Christmas uses falling branched snowflakes.
 - A lightweight owner dashboard for page activity and wish management.
 - Dedicated About Batify, developer story, Contact, How it works, and FAQ pages
   linked from the responsive footer.

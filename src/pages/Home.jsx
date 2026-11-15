@@ -15,7 +15,7 @@ import { FAQS } from '../lib/faqs'
 import { sb } from '../lib/supabase'
 import { useCampaignTheme } from '../components/CampaignThemeProvider'
 import useTitle from '../lib/useTitle'
-import { EventMark } from '../components/SeasonalOpener'
+import SeasonalOpener, { EventMark } from '../components/SeasonalOpener'
 
 const SAMPLE = 'Thank you for making my year loud, messy and happy. Leave me a wish.'
 
@@ -40,7 +40,7 @@ export function CampaignCard({ campaign, isActive, previewThemeId, setPreviewThe
           <span className="mt-5 inline-block text-sm font-semibold text-muted">Link creation opens during the event.</span>
         </div>
       )}
-      {previewTheme && (
+      {previewTheme && (campaign.id === 'anniversary' || isActive) && (
         <div className="mt-5 border-t border-ink/15 pt-4">
           <p className="mb-3 text-sm text-muted">Try the {eventLabel} look on this device. It won’t change the event schedule.</p>
           <button
@@ -65,21 +65,32 @@ export function CampaignCard({ campaign, isActive, previewThemeId, setPreviewThe
   )
 }
 
-function HeroEnvelope() {
+function HeroEnvelope({ themeId }) {
   const e = useEnvelope({ max: 3, onStep: (n) => { if (n === 3) fireConfetti({ x: 0.72, y: 0.42, count: 70, power: 0.8 }) } })
   const open = e.step >= 2
   return (
     <div className="relative mx-auto w-full max-w-[480px] pt-20 sm:pt-28">
-      <Envelope3D step={e.step} initial="M" interactive onActivate={e.open} label="Open the sample letter" size="min(80vw, 420px)">
-        <div className="t">Maria turns 25</div>
-        <p className="body">{SAMPLE}</p>
-      </Envelope3D>
+      {themeId ? (
+        <SeasonalOpener
+          theme={themeId}
+          title="Maria turns 25"
+          letterText={SAMPLE}
+          step={e.step}
+          onActivate={e.open}
+          className="seasonal-opener--hero"
+        />
+      ) : (
+        <Envelope3D step={e.step} initial="M" interactive onActivate={e.open} label="Open the sample letter" size="min(80vw, 420px)">
+          <div className="t">Maria turns 25</div>
+          <p className="body">{SAMPLE}</p>
+        </Envelope3D>
+      )}
       <div className="mt-12 text-center" aria-live="polite">
-        {e.step === 0 && !e.busy && <p className="text-lg font-bold">Tap the seal to open it</p>}
+        {!themeId && e.step === 0 && !e.busy && <p className="text-lg font-bold">Tap the seal to open it</p>}
         {e.step === 3 && (
           <button type="button" onClick={e.close} className="btn-ghost btn-sm">Close the letter</button>
         )}
-        {open && e.step < 3 && <p className="text-lg font-bold">Opening</p>}
+        {!themeId && open && e.step < 3 && <p className="text-lg font-bold">Opening</p>}
       </div>
     </div>
   )
@@ -105,7 +116,7 @@ export default function Home() {
         if (dead) return
         if (error) setCampaignError('Seasonal links are temporarily unavailable.')
         else setCampaigns((data || []).filter((campaign) =>
-          isCampaignActive(campaign) || (campaign.is_enabled && previewThemeForCampaign(campaign)),
+          isCampaignActive(campaign) || (campaign.id === 'anniversary' && campaign.is_enabled),
         ))
       })
     return () => { dead = true }
@@ -128,7 +139,7 @@ export default function Home() {
             </div>
             <p className="mt-4 font-semibold">Free. No account. Takes about three minutes.</p>
           </div>
-          <HeroEnvelope />
+          <HeroEnvelope themeId={themeId} />
         </div>
       </section>
 
