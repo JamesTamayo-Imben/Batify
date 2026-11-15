@@ -9,7 +9,7 @@ import { SLOTS } from '../lib/ads'
 import { fireConfetti } from '../lib/confetti'
 import { formatDate, fromLocalInput } from '../lib/dates'
 import { clearDraft, loadDraft, saveDraft } from '../lib/draft'
-import { CAMPAIGN_COLUMNS, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, occasionOf, upcomingCampaignDate } from '../lib/campaigns'
+import { CAMPAIGN_COLUMNS, isCampaignActive, isValidCampaignEventDate, occasionOf, upcomingCampaignDate } from '../lib/campaigns'
 import { error as buzzError, success, tap } from '../lib/haptics'
 import { rememberPage } from '../lib/mypages'
 import { copyText, shareLink } from '../lib/share'
@@ -21,9 +21,16 @@ import { themeOf, themeStyleOf } from '../lib/themes'
 import useTitle from '../lib/useTitle'
 
 const STEPS = ['About you', 'Your letter', 'The surprise', 'Seal it']
+const CHRISTMAS_STEPS = ['About you', 'Your letter', 'The surprise', 'Wrap it up']
+const CHRISTMAS_TREE_COLOR = '#176B45'
+const CHRISTMAS_GIFT_BOX_COLOR = '#C92F20'
 const STARTERS = ['Thank you for', 'This year I learned', 'The best part of my year was', 'My wish for next year is']
 const GCASH_RE = /^(09|\+639|639)\d{9}$/
-const EMPTY = { ownerName: '', title: '', letter: '', birthdayDate: '', revealAt: '', gcashNumber: '', theme: 'confetti' }
+const EMPTY = {
+  ownerName: '', title: '', letter: '', birthdayDate: '', revealAt: '', gcashNumber: '', theme: 'confetti',
+  christmasTreeColor: CHRISTMAS_TREE_COLOR,
+  christmasGiftBoxColor: CHRISTMAS_GIFT_BOX_COLOR,
+}
 
 function Field({ id, label, hint, error, optional, children }) {
   return (
@@ -77,13 +84,26 @@ function Result({ result, f, campaign }) {
     <div>
       <section data-theme={eventTheme || themeOf(f.theme)} style={eventTheme ? undefined : themeStyleOf(f.theme)} className="border-b-2 border-ink bg-ground px-4 pb-16 pt-20 text-center">
         {eventTheme ? (
-          <SeasonalOpener theme={eventTheme} title={f.title} letterText={f.letter} step={env.step} onActivate={env.open} className="seasonal-opener--hero" />
+          <SeasonalOpener
+            theme={eventTheme}
+            title={f.title}
+            letterText={f.letter}
+            step={env.step}
+            onActivate={env.open}
+            className="seasonal-opener--hero"
+            treeColor={f.christmasTreeColor}
+            giftBoxColor={f.christmasGiftBoxColor}
+          />
         ) : (
           <Envelope3D step={env.step} initial={(f.ownerName.trim()[0] || 'B').toUpperCase()} still size="min(74vw, 340px)">
             <div className="t">{f.title}</div><div className="s">With love, {f.ownerName}</div><div className="lines" />
           </Envelope3D>
         )}
-        <h1 className="mt-16 text-4xl sm:text-5xl" aria-live="polite">{sealed ? 'Sealed and live' : 'Sealing your letter'}</h1>
+        <h1 className="mt-16 text-4xl sm:text-5xl" aria-live="polite">
+          {campaign?.id === 'christmas'
+            ? sealed ? 'Wrapped and ready to share' : 'Wrapping your Christmas letter'
+            : sealed ? 'Sealed and live' : 'Sealing your letter'}
+        </h1>
         <p className="mx-auto mt-3 max-w-md text-lg">Share the public link. Keep the edit link safe.</p>
       </section>
 
@@ -159,7 +179,12 @@ export default function Create() {
           setCampaignStatus('error')
         } else {
           setCampaign(data)
-          setF((current) => ({ ...current, birthdayDate: upcomingCampaignDate(data) || current.birthdayDate }))
+          setF((current) => ({
+            ...current,
+            birthdayDate: upcomingCampaignDate(data) || current.birthdayDate,
+            christmasTreeColor: current.christmasTreeColor || CHRISTMAS_TREE_COLOR,
+            christmasGiftBoxColor: current.christmasGiftBoxColor || CHRISTMAS_GIFT_BOX_COLOR,
+          }))
           setCampaignStatus('ready')
         }
       })
@@ -178,12 +203,10 @@ export default function Create() {
       if (!f.ownerName.trim()) e.ownerName = 'Add your name so friends know whose letter this is.'
       if (!f.title.trim()) e.title = 'Give the page a title, like "Maria turns 25".'
       if (!f.birthdayDate) e.birthdayDate = `Pick your ${occasionOf(campaign?.id)?.dateLabel.toLowerCase() || 'birthday'}.`
-      else if (campaign && !(campaign.id === 'anniversary'
-        ? isEventDateNotPast(f.birthdayDate)
-        : isEventDateWithin30Days(f.birthdayDate))) {
+      else if (campaign && !isValidCampaignEventDate(f.birthdayDate, campaign)) {
         e.birthdayDate = campaign.id === 'anniversary'
           ? 'Choose an anniversary date that has not passed.'
-          : 'Choose an event date within the next 30 days.'
+          : 'Choose an event date within the next 30 days or the configured event date.'
       }
     }
     if (i === 1 && f.letter.trim().length < 10) e.letter = 'Write at least a couple of sentences.'
@@ -210,6 +233,8 @@ export default function Create() {
       const data = await postJSON('create-page', {
         turnstileToken: token, ownerName: f.ownerName.trim(), title: f.title.trim(), letter: f.letter.trim(),
         birthdayDate: f.birthdayDate, revealAt: fromLocalInput(f.revealAt), gcashNumber: f.gcashNumber.trim() || undefined, theme: f.theme,
+        christmasTreeColor: campaign?.id === 'christmas' ? f.christmasTreeColor : undefined,
+        christmasGiftBoxColor: campaign?.id === 'christmas' ? f.christmasGiftBoxColor : undefined,
         campaignType: campaign?.id,
       })
       rememberPage({ slug: data.slug, token: data.editToken, title: f.title.trim() })
@@ -235,6 +260,7 @@ export default function Create() {
 
   const first = f.ownerName.trim().split(/\s+/)[0]
   const occasion = occasionOf(campaign?.id)
+  const wizardSteps = campaign?.id === 'christmas' ? CHRISTMAS_STEPS : STEPS
   const starters = occasion?.starters || STARTERS
   const eventTheme = occasion?.priorityTheme
   const titlePlaceholder = occasion?.id === 'christmas'
@@ -245,7 +271,7 @@ export default function Create() {
     <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-14 lg:py-12">
       <div>
         <ol className="mb-6 grid grid-cols-4 gap-2" aria-label="Progress">
-          {STEPS.map((s, i) => (
+          {wizardSteps.map((s, i) => (
             <li key={s} aria-current={i === wiz ? 'step' : undefined}>
               <div className={`h-2 rounded-full border-2 border-ink ${i < wiz ? 'bg-ink' : i === wiz ? 'bg-sun' : 'bg-white'}`} />
               <span className={`mt-1.5 hidden text-sm sm:block ${i === wiz ? 'font-bold' : 'text-muted'}`}>{s}</span>
@@ -253,7 +279,11 @@ export default function Create() {
           ))}
         </ol>
         <p className="mb-1 text-sm font-bold text-muted sm:hidden">Step {wiz + 1} of 4</p>
-        <h1 ref={heading} tabIndex={-1} className="text-4xl outline-none sm:text-5xl">{['Who is this letter from?', 'Say what you want to say', 'Add a little surprise', 'Seal the envelope'][wiz]}</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-4xl outline-none sm:text-5xl">
+          {wiz === 3 && campaign?.id === 'christmas'
+            ? 'Wrap your Christmas letter'
+            : ['Who is this letter from?', 'Say what you want to say', 'Add a little surprise', 'Seal the envelope'][wiz]}
+        </h1>
         {campaign && <p className="mt-2 font-semibold text-accent">{campaign.title} link · Share it with friends and family.</p>}
 
         <form onSubmit={submit} className="mt-7 space-y-6" noValidate>
@@ -268,7 +298,7 @@ export default function Create() {
               <Field id="birthdayDate" label={dateLabel} error={errs.birthdayDate}
                 hint={campaign?.id === 'anniversary'
                     ? 'Your letter stays sealed until this date.'
-                    : campaign ? 'Your letter stays sealed until this date. Choose a date within the next 30 days.' : undefined}>
+                    : campaign ? 'Your letter stays sealed until this date. Choose a date within the next 30 days or the configured event date.' : undefined}>
                 <input id="birthdayDate" type="date" className="field" value={f.birthdayDate} onChange={set('birthdayDate')} aria-invalid={!!errs.birthdayDate} aria-describedby={errs.birthdayDate ? 'birthdayDate-err' : undefined} />
               </Field>
             </>
@@ -292,7 +322,36 @@ export default function Create() {
           {wiz === 2 && (
             <>
               {eventTheme ? (
-                <p className="card text-sm text-muted">The {occasion.label} tree and seasonal colors are applied automatically.</p>
+                campaign?.id === 'christmas' ? (
+                  <fieldset className="card space-y-4">
+                    <legend className="label">Choose your Christmas colors</legend>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="flex min-h-[72px] items-center gap-3 rounded-xl border-2 border-ink/15 bg-white p-3 font-semibold" htmlFor="christmas-tree-color">
+                        <input
+                          id="christmas-tree-color"
+                          type="color"
+                          className="h-12 w-14 cursor-pointer rounded-lg border-0 bg-transparent p-0.5"
+                          value={f.christmasTreeColor}
+                          onChange={(e) => setF((current) => ({ ...current, christmasTreeColor: e.target.value.toUpperCase() }))}
+                        />
+                        <span>Christmas tree</span>
+                      </label>
+                      <label className="flex min-h-[72px] items-center gap-3 rounded-xl border-2 border-ink/15 bg-white p-3 font-semibold" htmlFor="christmas-gift-box-color">
+                        <input
+                          id="christmas-gift-box-color"
+                          type="color"
+                          className="h-12 w-14 cursor-pointer rounded-lg border-0 bg-transparent p-0.5"
+                          value={f.christmasGiftBoxColor}
+                          onChange={(e) => setF((current) => ({ ...current, christmasGiftBoxColor: e.target.value.toUpperCase() }))}
+                        />
+                        <span>Gift box</span>
+                      </label>
+                    </div>
+                    <p className="hint">These colors appear on your letter when friends open it.</p>
+                  </fieldset>
+                ) : (
+                  <p className="card text-sm text-muted">The {occasion.label} illustration and seasonal colors are applied automatically.</p>
+                )
               ) : (
                 <fieldset>
                   <legend className="label">Envelope colors</legend>
@@ -326,7 +385,11 @@ export default function Create() {
             {wiz < 3 ? (
               <button type="button" className="btn-primary ml-auto" onClick={next}>Continue</button>
             ) : (
-              <button type="submit" className="btn-primary ml-auto" disabled={busy || !token}>{busy ? 'Sealing...' : 'Seal and create my page'}</button>
+              <button type="submit" className="btn-primary ml-auto" disabled={busy || !token}>
+                {campaign?.id === 'christmas'
+                  ? busy ? 'Wrapping…' : 'Wrap and create my page'
+                  : busy ? 'Sealing...' : 'Seal and create my page'}
+              </button>
             )}
           </div>
           <p className="text-sm text-muted">Your draft saves on this device as you type.</p>
@@ -343,6 +406,8 @@ export default function Create() {
               step={env.step}
               onActivate={env.open}
               className="seasonal-opener--hero"
+              treeColor={f.christmasTreeColor}
+              giftBoxColor={f.christmasGiftBoxColor}
             />
           ) : (
             <Envelope3D step={env.step} initial={(f.ownerName.trim()[0] || 'B').toUpperCase()} size="min(70vw, 320px)" still={wiz === 1}>

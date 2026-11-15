@@ -261,6 +261,11 @@ export function isEventDateWithin30Days(value, now = new Date()) {
   return eventDay !== null && eventDay >= today && eventDay <= today + 30
 }
 
+export function isValidCampaignEventDate(value, campaign, now = new Date()) {
+  if (campaign?.id === 'anniversary') return isEventDateNotPast(value, now)
+  return isEventDateWithin30Days(value, now) || upcomingCampaignDate(campaign, now) === value
+}
+
 export function upcomingCampaignDate(campaign, now = new Date()) {
   if (!campaign || campaign.id === 'anniversary') return null
   const month = Number(campaign.end_month)

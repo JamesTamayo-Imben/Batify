@@ -14,51 +14,39 @@ export function useCampaignTheme() {
   return useContext(CampaignThemeContext)
 }
 
-function ChristmasAudio() {
-  const audio = useRef(null)
-  const [playing, setPlaying] = useState(false)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    const track = new Audio('/audio/christmas-story.mp3')
-    track.volume = 0.12
-    track.preload = 'none'
-    audio.current = track
-    const onEnded = () => setPlaying(false)
-    track.addEventListener('ended', onEnded)
-    track.play().then(() => setPlaying(true)).catch(() => {})
-    return () => {
-      track.pause()
-      track.removeEventListener('ended', onEnded)
-      audio.current = null
-    }
-  }, [])
-
-  async function toggleAudio() {
-    const track = audio.current
-    if (!track) return
-    setError('')
-    if (!track.paused) {
-      track.pause()
-      setPlaying(false)
-      return
-    }
-    try {
-      await track.play()
-      setPlaying(true)
-    } catch (playError) {
-      console.error('Could not play the Christmas audio:', playError)
-      setError('Audio could not be played. Check your browser settings and try again.')
-    }
-  }
-
+function ThemeMusicControls({
+  preview,
+  previewLabel,
+  systemThemeLabel,
+  systemThemeDisabled,
+  showChristmasControls,
+  musicPlaying,
+  onToggleTheme,
+  onToggleMusic,
+}) {
+  const themeName = preview ? previewLabel : systemThemeLabel
+  const themeOff = preview || systemThemeDisabled
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-ink bg-ground px-4 py-2 text-sm font-semibold text-ink">
-      <p>Quiet Christmas music</p>
-      <button type="button" className="btn-ghost btn-sm shrink-0" onClick={toggleAudio} aria-pressed={playing}>
-        {playing ? 'Pause Christmas music' : 'Play Christmas music'}
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        className="btn-ghost btn-sm shrink-0"
+        aria-label={preview ? `Turn off ${themeName} theme preview` : `${themeOff ? 'Turn on' : 'Turn off'} ${themeName} theme`}
+        onClick={onToggleTheme}
+      >
+        {preview ? 'Turn off preview' : `${themeOff ? 'Turn on' : 'Turn off'} ${themeName} theme`}
       </button>
-      {error && <p role="alert" className="w-full">{error}</p>}
+      {showChristmasControls && (
+        <button
+          type="button"
+          className="btn-ghost btn-sm shrink-0"
+          aria-label={`${musicPlaying ? 'Turn off' : 'Turn on'} Christmas music`}
+          aria-pressed={musicPlaying}
+          onClick={onToggleMusic}
+        >
+          {musicPlaying ? 'Turn music off' : 'Turn music on'}
+        </button>
+      )}
     </div>
   )
 }
@@ -66,6 +54,18 @@ function ChristmasAudio() {
 export default function CampaignThemeProvider({ children }) {
   const [themeId, setThemeId] = useState(null)
   const [previewThemeId, setPreviewThemeId] = useState(null)
+  const [musicPlaying, setMusicPlaying] = useState(false)
+  const musicEnabledRef = useRef(null)
+  if (musicEnabledRef.current === null) {
+    try {
+      musicEnabledRef.current = localStorage.getItem('batify:christmas-music-enabled') !== 'false'
+    } catch (error) {
+      console.warn('Could not read the local Christmas music preference:', error)
+      musicEnabledRef.current = true
+    }
+  }
+  const [musicError, setMusicError] = useState('')
+  const audioRef = useRef(null)
   const [systemThemeDisabled, setSystemThemeDisabled] = useState(() => {
     try {
       return localStorage.getItem('batify:disable-seasonal-theme') === 'true'
@@ -121,6 +121,66 @@ export default function CampaignThemeProvider({ children }) {
   const activeThemeId = previewThemeId || (systemThemeDisabled ? null : themeId)
   const previewLabel = occasionOf(previewThemeId)?.label || previewThemeId
   const systemThemeLabel = occasionOf(themeId)?.label || themeId
+  const showChristmasControls = previewThemeId === 'christmas' ||
+    (!previewThemeId && themeId === 'christmas')
+  useEffect(() => {
+    if (!showChristmasControls) {
+      audioRef.current?.pause()
+      audioRef.current = null
+      setMusicPlaying(false)
+      return undefined
+    }
+
+    const track = new Audio('/audio/christmas-story.mp3')
+    track.volume = 0.12
+    track.preload = 'none'
+    audioRef.current = track
+    let active = true
+    const onEnded = () => setMusicPlaying(false)
+    track.addEventListener('ended', onEnded)
+    if (musicEnabledRef.current) {
+      track.play().then(() => {
+        if (active) setMusicPlaying(true)
+      }).catch(() => {})
+    }
+    return () => {
+      active = false
+      track.pause()
+      track.removeEventListener('ended', onEnded)
+      if (audioRef.current === track) audioRef.current = null
+      setMusicPlaying(false)
+    }
+  }, [showChristmasControls])
+
+  function updateMusicEnabled(enabled) {
+    musicEnabledRef.current = enabled
+    try {
+      localStorage.setItem('batify:christmas-music-enabled', String(enabled))
+    } catch (error) {
+      console.error('Could not save the local Christmas music preference:', error)
+    }
+  }
+
+  async function toggleMusic() {
+    const track = audioRef.current
+    if (!track) return
+    setMusicError('')
+    if (!track.paused) {
+      track.pause()
+      setMusicPlaying(false)
+      updateMusicEnabled(false)
+      return
+    }
+    try {
+      await track.play()
+      setMusicPlaying(true)
+      updateMusicEnabled(true)
+    } catch (error) {
+      console.error('Could not play the Christmas audio:', error)
+      setMusicError('Music could not be played. Check your browser settings and try again.')
+    }
+  }
+
   function toggleSystemTheme() {
     const disabled = !systemThemeDisabled
     try {
@@ -137,14 +197,16 @@ export default function CampaignThemeProvider({ children }) {
         {previewThemeId && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-ink bg-sun px-4 py-2 text-sm font-semibold text-ink">
             <p role="status">Previewing {previewLabel} theme on this device.</p>
-            <button
-              type="button"
-              className="btn-ghost btn-sm shrink-0"
-              aria-label={`Turn off ${previewLabel} theme preview`}
-              onClick={() => setPreviewThemeId(null)}
-            >
-              Turn off preview
-            </button>
+            <ThemeMusicControls
+              preview
+              previewLabel={previewLabel}
+              systemThemeLabel={systemThemeLabel}
+              systemThemeDisabled={systemThemeDisabled}
+              showChristmasControls={showChristmasControls}
+              musicPlaying={musicPlaying}
+              onToggleTheme={() => setPreviewThemeId(null)}
+              onToggleMusic={toggleMusic}
+            />
           </div>
         )}
         {!previewThemeId && themeId && (
@@ -152,14 +214,23 @@ export default function CampaignThemeProvider({ children }) {
             <p role="status">{systemThemeDisabled
               ? `Seasonal themes are off on this device. ${systemThemeLabel} is active today.`
               : `${systemThemeLabel} theme is active today.`}</p>
-            <button type="button" className="btn-ghost btn-sm shrink-0" onClick={toggleSystemTheme}>
-              {systemThemeDisabled ? 'Turn on seasonal theme' : 'Turn off on this device'}
-            </button>
+            <ThemeMusicControls
+              preview={false}
+              previewLabel={previewLabel}
+              systemThemeLabel={systemThemeLabel}
+              systemThemeDisabled={systemThemeDisabled}
+              showChristmasControls={showChristmasControls}
+              musicPlaying={musicPlaying}
+              onToggleTheme={toggleSystemTheme}
+              onToggleMusic={toggleMusic}
+            />
           </div>
         )}
         {activeThemeId === 'christmas' && <Snowfall />}
-        {activeThemeId === 'christmas' && <ChristmasAudio />}
         {children}
+        {musicError && showChristmasControls && (
+          <p role="alert" className="border-t border-ink/15 bg-ground px-4 py-2 text-sm font-semibold text-flag">{musicError}</p>
+        )}
       </div>
     </CampaignThemeContext.Provider>
   )

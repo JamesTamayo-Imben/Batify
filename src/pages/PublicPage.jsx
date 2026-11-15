@@ -60,7 +60,14 @@ function Ceremony({ page, onFinish, themeId }) {
       <button type="button" onClick={skip} className="btn-ghost btn-sm absolute bottom-6 right-4 z-30">Skip</button>
       <div className={`ceremony-stage text-center ${themeId ? 'has-seasonal-opener' : ''}`}>
         {themeId ? (
-          <SeasonalOpener theme={themeId} title={page.title} step={env.step} onActivate={env.open} />
+          <SeasonalOpener
+            theme={themeId}
+            title={page.title}
+            step={env.step}
+            onActivate={env.open}
+            treeColor={page.christmas_tree_color}
+            giftBoxColor={page.christmas_gift_box_color}
+          />
         ) : (
           <>
             <Envelope3D step={env.step} initial={initialOf(page.owner_name)} interactive onActivate={env.open} label={`Open the letter from ${page.owner_name}`} still={env.step > 0}>

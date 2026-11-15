@@ -20,6 +20,8 @@ create table if not exists public.pages (
   expires_at          timestamptz,
   opens_at            timestamptz,
   theme               text default 'confetti',            -- preset id or a custom #RRGGBB color
+  christmas_tree_color text check (christmas_tree_color is null or christmas_tree_color ~ '^#[0-9A-Fa-f]{6}$'),
+  christmas_gift_box_color text check (christmas_gift_box_color is null or christmas_gift_box_color ~ '^#[0-9A-Fa-f]{6}$'),
   reveal_at           timestamptz,                     -- wishes locked until this time
   auto_approve_wishes boolean default false,
   gcash_number        text,
@@ -28,6 +30,11 @@ create table if not exists public.pages (
   campaign_type       text check (campaign_type in ('christmas', 'halloween', 'valentines', 'new_year', 'anniversary')),
   created_at          timestamptz default now()
 );
+alter table public.pages
+  add column if not exists christmas_tree_color text
+  check (christmas_tree_color is null or christmas_tree_color ~ '^#[0-9A-Fa-f]{6}$'),
+  add column if not exists christmas_gift_box_color text
+  check (christmas_gift_box_color is null or christmas_gift_box_color ~ '^#[0-9A-Fa-f]{6}$');
 create index if not exists pages_edit_token_idx on public.pages (edit_token);
 
 create table if not exists public.wishes (
@@ -136,7 +143,8 @@ revoke all on public.contributions from anon, authenticated;
 revoke all on public.reports       from anon, authenticated;
 
 grant select (
-  id, slug, owner_name, title, letter, birthday_date, theme, reveal_at,
+  id, slug, owner_name, title, letter, birthday_date, theme,
+  christmas_tree_color, christmas_gift_box_color, reveal_at,
   auto_approve_wishes, gcash_number, gcash_qr_url, is_published, expires_at, created_at
 ) on public.pages to anon, authenticated;
 

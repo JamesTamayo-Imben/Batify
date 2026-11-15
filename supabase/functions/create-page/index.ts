@@ -44,6 +44,17 @@ function eventDateOrdinal(value: string): number {
   return Date.UTC(year, month - 1, day) / (24 * 60 * 60 * 1000);
 }
 
+function upcomingCampaignDateOrdinal(
+  campaign: { end_month: number; end_day: number },
+  todayOrdinal: number,
+): number {
+  const year = new Date(todayOrdinal * 24 * 60 * 60 * 1000).getUTCFullYear();
+  const thisYearEvent = Date.UTC(year, campaign.end_month - 1, campaign.end_day) / (24 * 60 * 60 * 1000);
+  return thisYearEvent >= todayOrdinal
+    ? thisYearEvent
+    : Date.UTC(year + 1, campaign.end_month - 1, campaign.end_day) / (24 * 60 * 60 * 1000);
+}
+
 Deno.serve(async (req) => {
   const pre = preflight(req);
   if (pre) return pre;
@@ -88,26 +99,48 @@ Deno.serve(async (req) => {
     // 3-5. Slug + token, insert (retry on slug collision)
     const sb = serviceClient();
     const campaignType = clean(body.campaignType, 24);
+    const christmasTreeColor = body.christmasTreeColor;
+    const christmasGiftBoxColor = body.christmasGiftBoxColor;
+    const isHexColor = (value: unknown): value is string =>
+      typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
+    if (campaignType === "christmas" &&
+      ((christmasTreeColor !== undefined && !isHexColor(christmasTreeColor)) ||
+        (christmasGiftBoxColor !== undefined && !isHexColor(christmasGiftBoxColor)))) {
+      return json({ error: "Christmas colors must be valid six-digit hex colors." }, 400);
+    }
+    let campaign: {
+      is_enabled: boolean;
+      start_month: number;
+      start_day: number;
+      end_month: number;
+      end_day: number;
+    } | null = null;
     if (campaignType) {
       if (!["christmas", "halloween", "valentines", "new_year", "anniversary"].includes(campaignType)) {
         return json({ error: "Unknown seasonal campaign." }, 400);
       }
-      const daysUntilEvent = eventDateOrdinal(body.birthdayDate) - manilaTodayOrdinal();
-      if (daysUntilEvent < 0 || (campaignType !== "anniversary" && daysUntilEvent > 30)) {
-        return json({
-          error: campaignType === "anniversary"
-            ? "Choose an anniversary date that has not passed."
-            : "Choose an event date within the next 30 days.",
-        }, 400);
-      }
-      const { data: campaign, error: campaignError } = await sb
+      const { data, error: campaignError } = await sb
         .from("campaign_events").select("*").eq("id", campaignType).maybeSingle();
       if (campaignError) {
         console.error("load campaign", campaignError);
         return json({ error: "Seasonal campaigns are not configured. Please contact support." }, 503);
       }
-      if (!campaign || !campaignIsActive(campaign)) {
+      if (!data || !campaignIsActive(data)) {
         return json({ error: "This seasonal campaign is not currently accepting new pages." }, 400);
+      }
+      campaign = data;
+
+      const todayOrdinal = manilaTodayOrdinal();
+      const eventOrdinal = eventDateOrdinal(body.birthdayDate);
+      const daysUntilEvent = eventOrdinal - todayOrdinal;
+      const matchesConfiguredEventDate = daysUntilEvent >= 0 &&
+        eventOrdinal === upcomingCampaignDateOrdinal(campaign, todayOrdinal);
+      if (daysUntilEvent < 0 || (campaignType !== "anniversary" && daysUntilEvent > 30 && !matchesConfiguredEventDate)) {
+        return json({
+          error: campaignType === "anniversary"
+            ? "Choose an anniversary date that has not passed."
+            : "Choose an event date within the next 30 days or the configured event date.",
+        }, 400);
       }
     }
 
@@ -127,6 +160,8 @@ Deno.serve(async (req) => {
         birthday_date: body.birthdayDate,
         opens_at: opensAt,
         campaign_type: campaignType || null,
+        christmas_tree_color: campaignType === "christmas" ? christmasTreeColor ?? null : null,
+        christmas_gift_box_color: campaignType === "christmas" ? christmasGiftBoxColor ?? null : null,
         reveal_at: revealAt,
         gcash_number: gcash,
         theme,

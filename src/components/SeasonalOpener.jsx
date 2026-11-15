@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { customColorOf } from '../lib/themes'
+
+const CHRISTMAS_TREE_COLOR = '#176B45'
+const CHRISTMAS_GIFT_BOX_COLOR = '#C92F20'
 
 const EVENT_NAMES = {
   christmas: 'Christmas tree',
@@ -16,12 +20,12 @@ const GIFT_PALETTES = {
   anniversary: { box: '#C98B57', ribbon: '#F7D983' },
 }
 
-function SeasonalMark({ theme, className = '' }) {
+function SeasonalMark({ theme, className = '', treeColor }) {
   if (theme === 'christmas') {
     return (
       <svg viewBox="0 0 100 120" className={className} aria-hidden="true">
         <path d="M50 5l7 14 15 2-11 11 3 15-14-7-14 7 3-15-11-11 15-2z" fill="#F7C531" stroke="#14142B" strokeWidth="3" strokeLinejoin="round" />
-        <path d="M50 20L19 58h18L14 83h25L24 105h52L61 83h25L63 58h18z" fill="#176B45" stroke="#14142B" strokeWidth="3" strokeLinejoin="round" />
+        <path d="M50 20L19 58h18L14 83h25L24 105h52L61 83h25L63 58h18z" fill={treeColor} stroke="#14142B" strokeWidth="3" strokeLinejoin="round" />
         <path d="M42 105v11h16v-11" fill="#8C542E" stroke="#14142B" strokeWidth="3" strokeLinejoin="round" />
         <circle cx="40" cy="58" r="4" fill="#C92F20" /><circle cx="60" cy="73" r="4" fill="#F7C531" /><circle cx="43" cy="88" r="4" fill="#C92F20" />
       </svg>
@@ -63,11 +67,20 @@ function SeasonalMark({ theme, className = '' }) {
   )
 }
 
-export function EventMark({ theme, className = '' }) {
-  return <SeasonalMark theme={theme} className={className} />
+export function EventMark({ theme, className = '', treeColor }) {
+  return <SeasonalMark theme={theme} className={className} treeColor={treeColor} />
 }
 
-export default function SeasonalOpener({ theme, title, letterText, step, onActivate, className = '' }) {
+export default function SeasonalOpener({
+  theme,
+  title,
+  letterText,
+  step,
+  onActivate,
+  className = '',
+  treeColor: customTreeColor,
+  giftBoxColor: customGiftBoxColor,
+}) {
   const [shakeEnabled, setShakeEnabled] = useState(false)
   const [message, setMessage] = useState('')
   const [shakeCount, setShakeCount] = useState(0)
@@ -75,6 +88,8 @@ export default function SeasonalOpener({ theme, title, letterText, step, onActiv
   const aboveThreshold = useRef(false)
   const name = EVENT_NAMES[theme] || 'event icon'
   const giftPalette = GIFT_PALETTES[theme] || GIFT_PALETTES.christmas
+  const treeColor = customColorOf(customTreeColor) || CHRISTMAS_TREE_COLOR
+  const giftBoxColor = customColorOf(customGiftBoxColor) || giftPalette.box
 
   useEffect(() => {
     if (!shakeEnabled) return undefined
@@ -134,7 +149,7 @@ export default function SeasonalOpener({ theme, title, letterText, step, onActiv
         {letterText && <p>{letterText}</p>}
       </div>
       <svg className="seasonal-gift" viewBox="0 0 80 80" aria-hidden="true">
-        <path d="M14 34h52v38H14z" fill={giftPalette.box} stroke="#14142B" strokeWidth="3" />
+        <path d="M14 34h52v38H14z" fill={giftBoxColor} stroke="#14142B" strokeWidth="3" />
         <path d="M35 34v38m-21-26h52" stroke={giftPalette.ribbon} strokeWidth="7" />
         <path d="M40 33C18 27 19 9 31 12c8 2 9 15 9 21zm0 0c22-6 21-24 9-21-8 2-9 15-9 21z" fill={giftPalette.ribbon} stroke="#14142B" strokeWidth="3" />
       </svg>
@@ -145,7 +160,7 @@ export default function SeasonalOpener({ theme, title, letterText, step, onActiv
         disabled={step > 0}
         aria-label={step > 0 ? 'Opening the letter' : `Tap the ${name} to open the letter`}
       >
-        <SeasonalMark theme={theme} className="seasonal-mark" />
+        <SeasonalMark theme={theme} className="seasonal-mark" treeColor={treeColor} />
       </button>
       <p className="mt-4 text-lg font-bold" aria-live="polite">
         {step === 0 ? `Tap the ${name} to open the letter` : 'Opening your letter…'}

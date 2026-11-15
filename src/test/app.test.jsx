@@ -30,7 +30,7 @@ import { clearDraft, loadDraft, saveDraft } from '../lib/draft'
 import { hasOpened, markOpened, wishUnwrapped } from '../lib/opened'
 import { WishItem } from '../pages/PublicPage'
 import { DEFAULT_CUSTOM_COLOR, themeOf, themeStyleOf } from '../lib/themes'
-import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, millisecondsUntilManilaMidnight, OCCASIONS, priorityThemeFor, previewThemeForCampaign, upcomingCampaignDate } from '../lib/campaigns'
+import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, isValidCampaignEventDate, millisecondsUntilManilaMidnight, OCCASIONS, priorityThemeFor, previewThemeForCampaign, upcomingCampaignDate } from '../lib/campaigns'
 import { isPageExpired } from '../lib/pages'
 import { sb } from '../lib/supabase'
 
@@ -134,6 +134,14 @@ describe('seasonal campaigns', () => {
       { id: 'anniversary', end_month: 12, end_day: 31 },
       new Date('2026-06-20T12:00:00+08:00'),
     )).toBeNull()
+  })
+
+  it('accepts the configured event date even when it is more than 30 days away', () => {
+    const now = new Date('2026-11-16T12:00:00+08:00')
+    const christmas = { id: 'christmas', end_month: 12, end_day: 25 }
+    expect(isEventDateWithin30Days('2026-12-25', now)).toBe(false)
+    expect(isValidCampaignEventDate('2026-12-25', christmas, now)).toBe(true)
+    expect(isValidCampaignEventDate('2027-01-01', christmas, now)).toBe(false)
   })
 
   it('uses Christmas-specific writing prompts and greeting language', () => {
@@ -279,10 +287,14 @@ describe('seasonal campaigns', () => {
     const query = { select: vi.fn(() => query), eq: vi.fn(() => Promise.resolve({ data: [campaign], error: null })) }
     const from = vi.spyOn(sb, 'from').mockReturnValue(query)
     const audio = {
+      paused: true,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
-      pause: vi.fn(),
-      play: vi.fn(() => Promise.resolve()),
+      pause: vi.fn(() => { audio.paused = true }),
+      play: vi.fn(() => {
+        audio.paused = false
+        return Promise.resolve()
+      }),
     }
     const audioConstructor = vi.spyOn(window, 'Audio').mockImplementation(() => audio)
 
@@ -290,17 +302,28 @@ describe('seasonal campaigns', () => {
       const { container, unmount } = render(<CampaignThemeProvider><p>Home</p></CampaignThemeProvider>)
       await waitFor(() => expect(from).toHaveBeenCalledWith('campaign_events'))
       await waitFor(() => expect(container.firstElementChild.getAttribute('data-theme')).toBe('christmas'))
+      await waitFor(() => expect(audio.play).toHaveBeenCalledTimes(1))
 
-      fireEvent.click(screen.getByRole('button', { name: 'Turn off on this device' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Turn off Christmas theme' }))
       expect(container.firstElementChild.getAttribute('data-theme')).toBe('confetti')
+      expect(audio.paused).toBe(false)
       expect(localStorage.getItem('batify:disable-seasonal-theme')).toBe('true')
+      const themeButton = screen.getByRole('button', { name: 'Turn on Christmas theme' })
+      const musicButton = screen.getByRole('button', { name: 'Turn off Christmas music' })
+      expect(themeButton.parentElement).toBe(musicButton.parentElement)
+      fireEvent.click(musicButton)
+      expect(audio.paused).toBe(true)
 
       unmount()
       const reloaded = render(<CampaignThemeProvider><p>Home</p></CampaignThemeProvider>)
       await waitFor(() => expect(reloaded.container.firstElementChild.getAttribute('data-theme')).toBe('confetti'))
-      expect(screen.getByRole('button', { name: 'Turn on seasonal theme' })).toBeTruthy()
-      fireEvent.click(screen.getByRole('button', { name: 'Turn on seasonal theme' }))
+      expect(screen.getByRole('button', { name: 'Turn on Christmas theme' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Turn on Christmas music' })).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: 'Turn on Christmas theme' }))
       expect(reloaded.container.firstElementChild.getAttribute('data-theme')).toBe('christmas')
+      expect(audio.play).toHaveBeenCalledTimes(1)
+      fireEvent.click(screen.getByRole('button', { name: 'Turn on Christmas music' }))
+      await waitFor(() => expect(audio.play).toHaveBeenCalledTimes(2))
     } finally {
       audioConstructor.mockRestore()
       from.mockRestore()
@@ -310,6 +333,17 @@ describe('seasonal campaigns', () => {
   it('keeps a local preview easy to turn off after leaving the campaign card', async () => {
     const query = { select: vi.fn(() => query), eq: vi.fn(() => Promise.resolve({ data: [], error: null })) }
     const from = vi.spyOn(sb, 'from').mockReturnValue(query)
+    const audio = {
+      paused: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      pause: vi.fn(() => { audio.paused = true }),
+      play: vi.fn(() => {
+        audio.paused = false
+        return Promise.resolve()
+      }),
+    }
+    const audioConstructor = vi.spyOn(window, 'Audio').mockImplementation(() => audio)
     function PreviewControls() {
       const { setPreviewThemeId } = useCampaignTheme()
       return <button type="button" onClick={() => setPreviewThemeId('christmas')}>Start preview</button>
@@ -326,6 +360,7 @@ describe('seasonal campaigns', () => {
       expect(screen.queryByRole('status')).toBeNull()
       expect(container.querySelector('[data-theme]').getAttribute('data-theme')).toBe('confetti')
     } finally {
+      audioConstructor.mockRestore()
       from.mockRestore()
     }
   })
@@ -457,11 +492,22 @@ describe('seasonal campaigns', () => {
 describe('seasonal opening', () => {
   it('offers a Christmas tree opener and a shake alternative', () => {
     const onActivate = vi.fn()
-    render(<SeasonalOpener theme="christmas" title="Maria’s Christmas letter" step={0} onActivate={onActivate} />)
+    const { container } = render(
+      <SeasonalOpener
+        theme="christmas"
+        title="Maria’s Christmas letter"
+        step={0}
+        onActivate={onActivate}
+        treeColor="#1478C8"
+        giftBoxColor="#8B2345"
+      />,
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Tap the Christmas tree to open the letter' }))
     expect(onActivate).toHaveBeenCalledOnce()
     expect(screen.getByRole('button', { name: 'Enable shake to open' })).toBeTruthy()
+    expect(container.querySelector('.seasonal-mark path:nth-of-type(2)').getAttribute('fill')).toBe('#1478C8')
+    expect(container.querySelector('.seasonal-gift path').getAttribute('fill')).toBe('#8B2345')
   })
 
   describe('brand mark', () => {

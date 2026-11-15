@@ -173,11 +173,13 @@ titles, descriptions, enablement, priority themes, and suggested gift labels.
 Priority themes activate automatically inside their configured window using
 Philippine time. Re-run `schema.sql` on existing projects before deploying the
 updated Edge Functions and frontend; it safely adds the campaign table, page
-occasion column, priority flag, and private push-subscription table. Visitors
-can turn off the automatic seasonal theme for the current device. Page owners
-can opt in to PWA push alerts for new wishes/gifts and GCash contributions in
-their dashboard settings. Push permission requires HTTPS and is not available
-from the Vite development server; use a production build and `npm run preview`
+occasion and Christmas color columns, priority flag, and private
+push-subscription table. Visitors can turn off the automatic seasonal theme
+and Christmas music independently on their device. Christmas page creators
+can customize the tree and gift-box colors. Page owners can opt in to PWA push
+alerts for new wishes/gifts and GCash contributions in their dashboard
+settings. Push permission requires HTTPS and is not available from the Vite
+development server; use a production build and `npm run preview`
 to test the service worker locally.
 
 ## Environment variables
