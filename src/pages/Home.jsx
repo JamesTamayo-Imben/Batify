@@ -24,6 +24,7 @@ export function CampaignCard({ campaign, isActive, previewThemeId, setPreviewThe
   const previewTheme = previewThemeForCampaign(campaign)
   const eventLabel = occasionOf(campaign.id)?.label || campaign.title
   const isPreviewing = previewThemeId === previewTheme
+  const canPreviewTheme = campaign.id === 'anniversary' || (campaign.is_priority === true && !isActive)
 
   return (
     <article className="card flex h-full flex-col bg-white transition-transform hover:-translate-y-0.5">
@@ -40,7 +41,7 @@ export function CampaignCard({ campaign, isActive, previewThemeId, setPreviewThe
           <span className="mt-5 inline-block text-sm font-semibold text-muted">Link creation opens during the event.</span>
         </div>
       )}
-      {previewTheme && (campaign.id === 'anniversary' || isActive) && (
+      {previewTheme && canPreviewTheme && (
         <div className="mt-5 border-t border-ink/15 pt-4">
           <p className="mb-3 text-sm text-muted">Try the {eventLabel} look on this device. It won’t change the event schedule.</p>
           <button

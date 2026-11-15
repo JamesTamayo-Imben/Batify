@@ -144,26 +144,32 @@ describe('seasonal campaigns', () => {
     ['halloween', 'Halloween'],
     ['valentines', "Valentine's Day"],
     ['new_year', 'New Year'],
-  ])('offers a local preview toggle for priority event %s', (id, label) => {
-    function StatefulCampaignCard() {
-      const [previewThemeId, setPreviewThemeId] = useState(null)
-      return (
+  ])('does not offer a redundant preview for active priority event %s', (id, label) => {
+    render(
+      <MemoryRouter>
         <CampaignCard
           campaign={{ id, title: label, description: 'Share a link', is_priority: true }}
           isActive
-          previewThemeId={previewThemeId}
-          setPreviewThemeId={setPreviewThemeId}
+          previewThemeId={null}
+          setPreviewThemeId={vi.fn()}
         />
-      )
-    }
+      </MemoryRouter>,
+    )
+    expect(screen.queryByRole('button', { name: `Preview ${label} theme` })).toBeNull()
+  })
 
-    render(<MemoryRouter><StatefulCampaignCard /></MemoryRouter>)
-    const previewButton = screen.getByRole('button', { name: `Preview ${label} theme` })
-    expect(previewButton.getAttribute('aria-pressed')).toBe('false')
-    fireEvent.click(previewButton)
-    expect(screen.getByRole('button', { name: /Turn off theme preview/ }).getAttribute('aria-pressed')).toBe('true')
-    fireEvent.click(screen.getByRole('button', { name: /Turn off theme preview/ }))
-    expect(screen.getByRole('button', { name: `Preview ${label} theme` }).getAttribute('aria-pressed')).toBe('false')
+  it('offers a preview for a priority event outside its active window', () => {
+    render(
+      <MemoryRouter>
+        <CampaignCard
+          campaign={{ id: 'christmas', title: 'Christmas', description: 'Share a link', is_priority: true }}
+          isActive={false}
+          previewThemeId={null}
+          setPreviewThemeId={vi.fn()}
+        />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('button', { name: 'Preview Christmas theme' })).toBeTruthy()
   })
 
   it('only offers priority previews for priority campaigns, while Anniversary stays previewable', () => {
@@ -172,7 +178,7 @@ describe('seasonal campaigns', () => {
     expect(previewThemeForCampaign({ id: 'anniversary', is_priority: false })).toBe('anniversary')
   })
 
-  it('hides out-of-window priority previews but keeps the Anniversary preview available', () => {
+  it('offers out-of-window priority previews and keeps the Anniversary preview available', () => {
     const setPreviewThemeId = vi.fn()
     const { rerender } = render(
       <MemoryRouter>
@@ -184,7 +190,7 @@ describe('seasonal campaigns', () => {
         />
       </MemoryRouter>,
     )
-    expect(screen.queryByRole('button', { name: 'Preview Christmas theme' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Preview Christmas theme' })).toBeTruthy()
 
     rerender(
       <MemoryRouter>
