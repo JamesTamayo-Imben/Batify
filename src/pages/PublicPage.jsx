@@ -10,6 +10,8 @@ import GiftArt from '../components/art/GiftArt'
 import Icon from '../components/Icon'
 import { LogoMark } from '../components/Logo'
 import ReportWish from '../components/ReportWish'
+import SeasonalOpener, { EventMark } from '../components/SeasonalOpener'
+import { useCampaignTheme } from '../components/CampaignThemeProvider'
 import Turnstile from '../components/Turnstile'
 import NotFound from './NotFound'
 import { SLOTS } from '../lib/ads'
@@ -30,7 +32,7 @@ const isRevealed = (page) => !page.reveal_at || new Date(page.reveal_at).getTime
 const initialOf = (name) => (name.trim()[0] || 'B').toUpperCase()
 
 /* ------------------------------------------------------------ opening ceremony */
-function Ceremony({ page, onFinish }) {
+function Ceremony({ page, onFinish, themeId }) {
   const [phase, setPhase] = useState('idle') // idle | rising | done
   const root = useRef(null)
   const env = useEnvelope({
@@ -53,23 +55,29 @@ function Ceremony({ page, onFinish }) {
 
   const skip = () => { setPhase('done'); onFinish() }
   return (
-    <div ref={root} tabIndex={-1} className={`ceremony ${phase === 'rising' ? 'is-rising' : ''} ${phase === 'done' ? 'is-done' : ''}`} role="dialog" aria-modal="true" aria-label={`A letter from ${page.owner_name}`}>
+    <div ref={root} tabIndex={-1} className={`ceremony ${themeId ? 'is-seasonal' : ''} ${phase === 'rising' ? 'is-rising' : ''} ${phase === 'done' ? 'is-done' : ''}`} role="dialog" aria-modal="true" aria-label={`A letter from ${page.owner_name}`}>
       <Banderitas className="absolute inset-x-0 top-0" count={11} />
       <button type="button" onClick={skip} className="btn-ghost btn-sm absolute bottom-6 right-4 z-30">Skip</button>
-      <div className="ceremony-stage text-center">
-        <Envelope3D step={env.step} initial={initialOf(page.owner_name)} interactive onActivate={env.open} label={`Open the letter from ${page.owner_name}`} still={env.step > 0}>
-          <div className="t">{page.title}</div>
-          <div className="s">With love, {page.owner_name}</div>
-          <div className="lines" />
-        </Envelope3D>
-        <div className="mt-16 min-h-[4.5rem] px-4" aria-live="polite">
-          {env.step === 0 && (
-            <>
-              <p className="font-display text-3xl font-extrabold sm:text-4xl">A letter from {page.owner_name.split(' ')[0]}</p>
-              <p className="mt-1 text-lg font-semibold">Tap the seal to open it</p>
-            </>
-          )}
-        </div>
+      <div className={`ceremony-stage text-center ${themeId ? 'has-seasonal-opener' : ''}`}>
+        {themeId ? (
+          <SeasonalOpener theme={themeId} title={page.title} step={env.step} onActivate={env.open} />
+        ) : (
+          <>
+            <Envelope3D step={env.step} initial={initialOf(page.owner_name)} interactive onActivate={env.open} label={`Open the letter from ${page.owner_name}`} still={env.step > 0}>
+              <div className="t">{page.title}</div>
+              <div className="s">With love, {page.owner_name}</div>
+              <div className="lines" />
+            </Envelope3D>
+            <div className="mt-16 min-h-[4.5rem] px-4" aria-live="polite">
+              {env.step === 0 && (
+                <>
+                  <p className="font-display text-3xl font-extrabold sm:text-4xl">A letter from {page.owner_name.split(' ')[0]}</p>
+                  <p className="mt-1 text-lg font-semibold">Tap the seal to open it</p>
+                </>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
@@ -97,7 +105,7 @@ function WishCard({ wish, animate, closing, onWrap, giftOptions }) {
   )
 }
 
-export function WishItem({ wish, index, bulkAction, bulkToken, fresh, giftOptions }) {
+export function WishItem({ wish, index, bulkAction, bulkToken, fresh, giftOptions, eventTheme }) {
   const [open, setOpen] = useState(() => wishUnwrapped(wish.id))
   const [lid, setLid] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -146,7 +154,7 @@ export function WishItem({ wish, index, bulkAction, bulkToken, fresh, giftOption
   return (
     <button ref={btn} type="button" onClick={unwrap} aria-label={`Unwrap the gift from ${wish.sender_name}`}
       className={`${fresh ? 'drop-in' : ''} group flex min-h-[210px] flex-col items-center justify-end rounded-2xl border-2 border-ink bg-white px-4 pb-4 pt-8 text-center shadow-sticker transition-transform hover:-translate-y-1`}>
-      <GiftBox3D gift={wish.gift_type} size={92} open={lid} />
+      <GiftBox3D gift={wish.gift_type} size={92} open={lid} theme={eventTheme} />
       <span className="mt-8 block max-w-full truncate font-display text-xl font-extrabold">{wish.sender_name}</span>
       <span className="text-sm font-semibold text-muted">Tap to unwrap</span>
     </button>
@@ -154,7 +162,7 @@ export function WishItem({ wish, index, bulkAction, bulkToken, fresh, giftOption
 }
 
 /* ------------------------------------------------------------- send wish form */
-function Sent({ gift, text, onAgain }) {
+function Sent({ gift, text, onAgain, theme }) {
   const [open, setOpen] = useState(true)
   useEffect(() => {
     const a = setTimeout(() => setOpen(false), 350)
@@ -163,7 +171,7 @@ function Sent({ gift, text, onAgain }) {
   }, [])
   return (
     <div className="card pt-10 text-center" role="status">
-      <GiftBox3D gift={gift} size={104} open={open} />
+      <GiftBox3D gift={gift} size={104} open={open} theme={theme} />
       <h3 className="mt-8 text-3xl">Wrapped and sent</h3>
       <p className="mx-auto mt-2 max-w-md text-muted">{text}</p>
       <button className="btn-ghost mt-5" onClick={onAgain}>Send another</button>
@@ -171,14 +179,14 @@ function Sent({ gift, text, onAgain }) {
   )
 }
 
-function ScheduledLetter({ opensAt }) {
+function ScheduledLetter({ opensAt, themeId }) {
   const openDate = new Intl.DateTimeFormat('en-PH', {
     timeZone: 'Asia/Manila',
     dateStyle: 'long',
     timeStyle: 'short',
   }).format(new Date(opensAt))
   return (
-    <div data-theme="confetti" className="grid min-h-dvh place-items-center bg-ground px-4 py-12 text-center">
+    <div data-theme={themeId || 'confetti'} className="grid min-h-dvh place-items-center bg-ground px-4 py-12 text-center">
       <main className="w-full max-w-xl">
         <Envelope3D step={0} initial="B" still size="min(70vw, 280px)">
           <div className="t">A letter for you</div><div className="s">Sealed until the event</div>
@@ -193,6 +201,7 @@ function ScheduledLetter({ opensAt }) {
 }
 
 function SendWishForm({ page, revealed, giftOptions }) {
+  const { themeId } = useCampaignTheme()
   const occasion = occasionOf(page.campaign_type)
   const [name, setName] = useState('')
   const [message, setMessage] = useState('')
@@ -231,14 +240,14 @@ function SendWishForm({ page, revealed, giftOptions }) {
     const text = sent.is_approved
       ? revealed ? `Your wish is now on ${page.owner_name}'s page.` : `Saved. It will appear when the page is revealed on ${formatDateTime(page.reveal_at)}.`
       : `Thank you. ${page.owner_name} will review it before it appears on the page.`
-    return <Sent gift={gift} text={text} onAgain={again} />
+    return <Sent gift={gift} text={text} onAgain={again} theme={themeId} />
   }
 
   return (
     <form onSubmit={submit} className="card space-y-5">
       <div>
         <span className="label" id="pick-l">1. Pick a gift</span>
-        <GiftPicker value={gift} onChange={(g) => { setGift(g); setError(''); setFileErr('') }} disabled={busy} options={giftOptions} />
+        <GiftPicker value={gift} onChange={(g) => { setGift(g); setError(''); setFileErr('') }} disabled={busy} options={giftOptions} theme={themeId} />
       </div>
       {gift === 'media' && (
         <div>
@@ -335,6 +344,7 @@ function GcashSection({ page }) {
 /* ------------------------------------------------------------------- the page */
 export default function PublicPage() {
   const { slug } = useParams()
+  const { themeId: priorityTheme } = useCampaignTheme()
   const [status, setStatus] = useState('loading')
   const [page, setPage] = useState(null)
   const [opensAt, setOpensAt] = useState(null)
@@ -442,28 +452,34 @@ export default function PublicPage() {
 
   if (status === 'loading') {
     return (
-      <div data-theme="confetti" className="grid min-h-dvh place-items-center bg-ground text-center">
+      <div data-theme={priorityTheme || 'confetti'} className="grid min-h-dvh place-items-center bg-ground text-center">
         <div><div className="animate-pulse"><LogoMark size={64} /></div><p className="mt-4 text-lg font-bold">Fetching your letter</p></div>
       </div>
     )
   }
-  if (status === 'scheduled') return <ScheduledLetter opensAt={opensAt} />
+  if (status === 'scheduled') return <ScheduledLetter opensAt={opensAt} themeId={priorityTheme} />
   if (status === 'missing') return <NotFound message="This birthday page doesn't exist or isn't published." />
   if (status === 'error') return <NotFound message="We couldn't load this page. Please try again." />
 
   const first = page.owner_name.split(' ')[0]
   const occasion = occasionOf(page.campaign_type)
+  const pageTheme = priorityTheme || themeOf(page.theme)
   const giftOptions = page.campaign_type ? giftOptionsFor(campaign || { id: page.campaign_type }) : null
   return (
-    <div data-theme={themeOf(page.theme)} style={themeStyleOf(page.theme)} className="min-h-dvh bg-paper">
-      {ceremony && <Ceremony page={page} onFinish={finishCeremony} />}
+    <div data-theme={pageTheme} style={priorityTheme ? undefined : themeStyleOf(page.theme)} className="min-h-dvh bg-paper">
+      {ceremony && <Ceremony page={page} onFinish={finishCeremony} themeId={priorityTheme} />}
 
       <header className="relative overflow-hidden border-b-2 border-ink bg-ground px-4 pb-24 pt-28 text-center">
         <Banderitas className="absolute inset-x-0 top-0" count={11} />
         <div className="relative mx-auto max-w-2xl">
           <p className="text-lg font-bold">{formatDate(page.birthday_date)}</p>
           <h1 className="mt-2 text-balance text-5xl sm:text-6xl">{page.title}</h1>
-          {occasion && <p className="mt-3 font-semibold text-accent">{campaign?.title || occasion.label}</p>}
+          {occasion && (
+            <p className="mt-3 inline-flex items-center gap-2 font-semibold text-accent">
+              {priorityTheme && <span className="event-mark"><EventMark theme={priorityTheme} /></span>}
+              {campaign?.title || occasion.label}
+            </p>
+          )}
           <button className="btn-ghost btn-sm mt-6" onClick={async () => {
             const r = await shareLink({ title: page.title, text: occasion ? `${occasion.shareText} to ${first}` : `Send ${first} a birthday wish`, url: location.href })
             setNote(r === 'copied' ? 'Link copied.' : r === 'failed' ? 'Could not share. Copy the address from your browser.' : '')
@@ -505,7 +521,7 @@ export default function PublicPage() {
               <div className="card text-center text-muted">No wishes yet. Be the first to send one below.</div>
             ) : (
               <div className="grid gap-5 sm:grid-cols-2">
-                {wishes.map((w, i) => <WishItem key={w.id} wish={w} index={i} bulkAction={bulkCommand.action} bulkToken={bulkCommand.token} fresh={fresh.has(w.id)} />)}
+                {wishes.map((w, i) => <WishItem key={w.id} wish={w} index={i} bulkAction={bulkCommand.action} bulkToken={bulkCommand.token} fresh={fresh.has(w.id)} eventTheme={priorityTheme} />)}
               </div>
             )}
           </section>

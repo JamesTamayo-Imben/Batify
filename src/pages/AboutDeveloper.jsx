@@ -7,7 +7,7 @@ export default function AboutDeveloper() {
 
   return (
     <div>
-      <section data-theme="confetti" className="border-b-2 border-ink bg-ground px-4 py-16 sm:px-6 sm:py-24">
+      <section className="border-b-2 border-ink bg-ground px-4 py-16 sm:px-6 sm:py-24">
         <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-[1.2fr_0.8fr] md:items-end">
           <div>
             <h1 className="max-w-3xl text-5xl sm:text-6xl">A little appreciation can make the day.</h1>

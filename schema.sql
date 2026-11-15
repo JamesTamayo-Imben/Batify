@@ -216,6 +216,7 @@ create table if not exists public.campaign_events (
   title text not null,
   description text not null,
   is_enabled boolean not null default false,
+  is_priority boolean not null default false,
   start_month smallint not null check (start_month between 1 and 12),
   start_day smallint not null check (start_day between 1 and 31),
   end_month smallint not null check (end_month between 1 and 12),
@@ -223,32 +224,41 @@ create table if not exists public.campaign_events (
   gift_options jsonb not null default '{}'::jsonb check (jsonb_typeof(gift_options) = 'object'),
   updated_at timestamptz not null default now()
 );
+alter table public.campaign_events add column if not exists is_priority boolean;
+update public.campaign_events
+set is_priority = id <> 'anniversary'
+where is_priority is null;
+alter table public.campaign_events alter column is_priority set default false;
+alter table public.campaign_events alter column is_priority set not null;
 alter table public.campaign_events drop constraint if exists campaign_events_id_check;
 alter table public.campaign_events add constraint campaign_events_id_check
   check (id in ('christmas', 'halloween', 'valentines', 'new_year', 'anniversary'));
+alter table public.campaign_events drop constraint if exists campaign_events_anniversary_not_priority_check;
+alter table public.campaign_events add constraint campaign_events_anniversary_not_priority_check
+  check (id <> 'anniversary' or not is_priority);
 
 insert into public.campaign_events
-  (id, title, description, is_enabled, start_month, start_day, end_month, end_day, gift_options)
+  (id, title, description, is_enabled, is_priority, start_month, start_day, end_month, end_day, gift_options)
 values
   ('christmas', 'Christmas Pamasko',
    'Make a gift link for your ninongs and ninangs to send their pamasko.',
-   true, 11, 25, 12, 25,
+   true, true, 11, 25, 12, 25,
    '{"flower":"Holiday flowers","teddy":"Christmas teddy","chocolate":"Christmas treats","cake":"Holiday cake","coffee":"Warm coffee","book":"Holiday read","balloon":"Holiday balloons","media":"Photo or video"}'),
   ('halloween', 'Halloween Treats',
    'Share a Halloween letter and let friends send a little treat.',
-   true, 10, 1, 10, 31,
+   true, true, 10, 1, 10, 31,
    '{"flower":"Autumn flowers","teddy":"Spooky teddy","chocolate":"Halloween treats","cake":"Spooky cupcakes","coffee":"Spiced coffee","book":"Spooky story","balloon":"Halloween balloons","media":"Photo or video"}'),
   ('valentines', 'Valentine''s Day',
    'Share a love note and let someone send a little surprise.',
-   true, 1, 15, 2, 14,
+   true, true, 1, 15, 2, 14,
    '{"flower":"Roses","teddy":"Loveable teddy","chocolate":"Sweet treats","cake":"Valentine cake","coffee":"Coffee date","book":"Love story","balloon":"Heart balloons","media":"Photo or video"}'),
   ('new_year', 'New Year Wishes',
    'Send a New Year letter and start the year with wishes and gifts.',
-   true, 12, 2, 1, 1,
+   true, true, 12, 2, 1, 1,
    '{"flower":"New Year flowers","teddy":"New Year teddy","chocolate":"New Year treats","cake":"New Year cake","coffee":"New Year coffee","book":"Fresh-start read","balloon":"Celebration balloons","media":"Photo or video"}'),
   ('anniversary', 'Anniversary',
    'Celebrate your anniversary with a link for wishes and gifts.',
-   true, 1, 1, 12, 31,
+   true, false, 1, 1, 12, 31,
    '{"flower":"Anniversary flowers","teddy":"Keepsake teddy","chocolate":"Sweet treats","cake":"Celebration cake","coffee":"Coffee date","book":"A book for us","balloon":"Anniversary balloons","media":"Photo or video"}')
 on conflict (id) do nothing;
 
@@ -282,7 +292,7 @@ where id in ('christmas', 'halloween', 'valentines', 'new_year', 'anniversary');
 alter table public.campaign_events enable row level security;
 revoke all on public.campaign_events from anon, authenticated;
 grant select (
-  id, title, description, is_enabled, start_month, start_day, end_month, end_day, gift_options
+  id, title, description, is_enabled, is_priority, start_month, start_day, end_month, end_day, gift_options
 ) on public.campaign_events to anon, authenticated;
 
 drop policy if exists campaign_events_public_read on public.campaign_events;

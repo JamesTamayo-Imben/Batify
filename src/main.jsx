@@ -6,8 +6,10 @@ import './styles/tokens.css'
 import './styles/envelope.css'
 import './styles/giftbox.css'
 import './styles/bits.css'
+import './styles/seasonal.css'
 
 import NavShell from './components/NavShell'
+import CampaignThemeProvider from './components/CampaignThemeProvider'
 const Home = lazy(() => import('./pages/Home'))
 const About = lazy(() => import('./pages/About'))
 const AboutDeveloper = lazy(() => import('./pages/AboutDeveloper'))
@@ -49,7 +51,9 @@ function App() {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <CampaignThemeProvider>
+      <App />
+    </CampaignThemeProvider>
   </StrictMode>,
 )
 

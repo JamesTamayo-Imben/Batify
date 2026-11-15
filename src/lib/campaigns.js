@@ -3,6 +3,7 @@ import { GIFTS } from './gifts'
 export const OCCASIONS = {
   christmas: {
     id: 'christmas',
+    priorityTheme: 'christmas',
     label: 'Christmas',
     dateLabel: 'Christmas date',
     titlePlaceholder: 'Maria’s Christmas Pamasko',
@@ -23,6 +24,7 @@ export const OCCASIONS = {
   },
   halloween: {
     id: 'halloween',
+    priorityTheme: 'halloween',
     label: 'Halloween',
     dateLabel: 'Halloween date',
     titlePlaceholder: 'A Halloween treat',
@@ -43,6 +45,7 @@ export const OCCASIONS = {
   },
   valentines: {
     id: 'valentines',
+    priorityTheme: 'valentines',
     label: "Valentine's Day",
     dateLabel: "Valentine's Day",
     titlePlaceholder: "A Valentine's surprise",
@@ -63,6 +66,7 @@ export const OCCASIONS = {
   },
   new_year: {
     id: 'new_year',
+    priorityTheme: 'new_year',
     label: 'New Year',
     dateLabel: 'New Year date',
     titlePlaceholder: 'A wish for the New Year',
@@ -83,6 +87,7 @@ export const OCCASIONS = {
   },
   anniversary: {
     id: 'anniversary',
+    priorityTheme: null,
     label: 'Anniversary',
     dateLabel: 'Anniversary date',
     titlePlaceholder: 'Our anniversary',
@@ -103,10 +108,22 @@ export const OCCASIONS = {
 }
 
 export const CAMPAIGN_COLUMNS =
-  'id,title,description,is_enabled,start_month,start_day,end_month,end_day,gift_options'
+  'id,title,description,is_enabled,is_priority,start_month,start_day,end_month,end_day,gift_options'
+
+const PRIORITY_THEME_ORDER = ['christmas', 'new_year', 'valentines', 'halloween']
 
 export function occasionOf(id) {
   return OCCASIONS[id] ? OCCASIONS[id] : null
+}
+
+export function priorityThemeFor(campaigns, now = new Date()) {
+  const active = (campaigns || []).filter((campaign) =>
+    campaign?.is_priority === true &&
+    campaign.id !== 'anniversary' &&
+    occasionOf(campaign.id)?.priorityTheme &&
+    isCampaignActive(campaign, now),
+  )
+  return PRIORITY_THEME_ORDER.find((id) => active.some((campaign) => campaign.id === id)) || null
 }
 
 export function giftOptionsFor(campaign) {
@@ -178,4 +195,18 @@ export function isCampaignActive(campaign, now = new Date()) {
   return start <= end
     ? today >= start && today <= end
     : today >= start || today <= end
+}
+
+export function millisecondsUntilManilaMidnight(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  }).formatToParts(now)
+  const year = Number(parts.find((part) => part.type === 'year')?.value)
+  const month = Number(parts.find((part) => part.type === 'month')?.value)
+  const day = Number(parts.find((part) => part.type === 'day')?.value)
+  const nextMidnight = Date.UTC(year, month - 1, day + 1) - 8 * 60 * 60 * 1000
+  return Math.max(1000, nextMidnight - now.getTime() + 50)
 }

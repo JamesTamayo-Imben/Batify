@@ -57,6 +57,11 @@
   during the 30-day lead-in and open on the event date. Anniversary links remain
   available year-round; all new special-event letters stay sealed until their
   chosen date.
+- Priority seasonal campaigns switch the whole site to their event colors and
+  decorations during their configured Philippine-time window. Christmas wins
+  when its window overlaps New Year; Anniversary is never a priority event.
+  Seasonal letters use an event illustration as the opening control, with
+  optional motion-sensor shake support where available.
 - A lightweight owner dashboard for page activity and wish management.
 - Dedicated About Batify, developer story, Contact, How it works, and FAQ pages
   linked from the responsive footer.
@@ -150,10 +155,11 @@ server.
 
 Seasonal campaign pages use the same shareable wish links as birthday pages.
 The admin console's **Campaigns** tab controls recurring MM-DD date windows,
-titles, descriptions, enablement, and suggested gift labels. Campaigns activate
-automatically inside their configured window using Philippine time. Re-run
-`schema.sql` on existing projects before deploying the updated Edge Functions
-and frontend; it safely adds the campaign table and page occasion column.
+titles, descriptions, enablement, priority themes, and suggested gift labels.
+Priority themes activate automatically inside their configured window using
+Philippine time. Re-run `schema.sql` on existing projects before deploying the
+updated Edge Functions and frontend; it safely adds the campaign table, page
+occasion column, and priority flag.
 
 ## Environment variables
 

@@ -13,6 +13,7 @@ import { fireConfetti } from '../lib/confetti'
 import { CAMPAIGN_COLUMNS, isCampaignActive } from '../lib/campaigns'
 import { FAQS } from '../lib/faqs'
 import { sb } from '../lib/supabase'
+import { useCampaignTheme } from '../components/CampaignThemeProvider'
 import useTitle from '../lib/useTitle'
 
 const SAMPLE = 'Thank you for making my year loud, messy and happy. Leave me a wish.'
@@ -44,6 +45,7 @@ const STEPS = [
 ]
 
 export default function Home() {
+  const { themeId } = useCampaignTheme()
   useTitle('Batify: birthday letters, wishes and gifts in one link')
   const [boxOpen, setBoxOpen] = useState(false)
   const [campaigns, setCampaigns] = useState([])
@@ -63,7 +65,7 @@ export default function Home() {
   return (
     <div>
       {/* Hero: the envelope is the product, so it is the first thing you can touch. */}
-      <section data-theme="confetti" className="relative overflow-hidden border-b-2 border-ink bg-ground pb-20">
+      <section data-theme={themeId || 'confetti'} className="relative overflow-hidden border-b-2 border-ink bg-ground pb-20">
         <Banderitas className="absolute inset-x-0 top-0" count={11} />
         <div className="mx-auto grid max-w-6xl items-center gap-6 px-4 pt-24 sm:px-6 lg:grid-cols-2 lg:gap-10 lg:pt-28">
           <div>
@@ -129,7 +131,7 @@ export default function Home() {
             {GIFTS.map((g, i) => (
               <div key={g.id} className="rounded-2xl border-2 border-ink bg-white p-3 text-ink">
                 <div className="grid h-36 place-items-center">
-                  {i === 0 ? <GiftBox3D gift="flower" size={84} open={boxOpen} color="#E0518B" ribbon="#F7C531" /> : <GiftArt id={g.id} className="h-24 w-24" />}
+                  {i === 0 ? <GiftBox3D gift="flower" size={84} open={boxOpen} color={themeId ? undefined : '#E0518B'} ribbon={themeId ? undefined : '#F7C531'} theme={themeId} /> : <GiftArt id={g.id} className="h-24 w-24" />}
                 </div>
                 <p className="mt-1 text-center text-sm font-bold">{g.label}</p>
               </div>
@@ -139,7 +141,7 @@ export default function Home() {
       </section>
 
       <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-20 sm:px-6 lg:grid-cols-2" aria-labelledby="lock-h">
-        <div className="order-2 rounded-3xl border-2 border-ink bg-ground p-8 lg:order-1" data-theme="confetti">
+        <div className="order-2 rounded-3xl border-2 border-ink bg-ground p-8 lg:order-1" data-theme={themeId || 'confetti'}>
           <FlipCountdown target={Date.now() + 3 * 86400000 + 4 * 3600000 + 12 * 60000 + 30000} />
         </div>
         <div className="order-1 lg:order-2">
@@ -172,7 +174,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section data-theme="confetti" className="relative overflow-hidden border-t-2 border-ink bg-ground py-20 text-center">
+      <section data-theme={themeId || 'confetti'} className="relative overflow-hidden border-t-2 border-ink bg-ground py-20 text-center">
         <div className="mx-auto max-w-2xl px-4">
           <h2 className="text-balance text-4xl sm:text-5xl">Your birthday deserves more than a group chat</h2>
           <Link to="/create" className="btn-primary mt-8 px-8 py-4 text-lg">Write my letter</Link>

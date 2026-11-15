@@ -10,7 +10,7 @@ export default function Contact() {
 
   return (
     <div>
-      <section data-theme="confetti" className="border-b-2 border-ink bg-ground px-4 py-16 sm:px-6 sm:py-24">
+      <section className="border-b-2 border-ink bg-ground px-4 py-16 sm:px-6 sm:py-24">
         <div className="mx-auto max-w-6xl">
           <h1 className="max-w-3xl text-5xl sm:text-6xl">Have a question? Say hello.</h1>
           <p className="mt-6 max-w-2xl text-xl leading-relaxed">

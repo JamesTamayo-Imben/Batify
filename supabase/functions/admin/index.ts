@@ -102,6 +102,7 @@ Deno.serve(async (req) => {
           title,
           description,
           is_enabled: body.isEnabled === true,
+          is_priority: campaignId !== "anniversary" && body.isPriority === true,
           start_month: Number(body.startMonth),
           start_day: Number(body.startDay),
           end_month: Number(body.endMonth),

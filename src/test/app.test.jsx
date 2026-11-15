@@ -14,6 +14,7 @@ import Envelope3D, { useEnvelope } from '../components/Envelope3D'
 import FlipCountdown from '../components/FlipCountdown'
 import GiftBox3D from '../components/GiftBox3D'
 import GiftPicker from '../components/GiftPicker'
+import SeasonalOpener from '../components/SeasonalOpener'
 import ThemePicker from '../components/ThemePicker'
 import CampaignSettings from '../components/CampaignEditor'
 import Turnstile from '../components/Turnstile'
@@ -25,7 +26,7 @@ import { clearDraft, loadDraft, saveDraft } from '../lib/draft'
 import { hasOpened, markOpened, wishUnwrapped } from '../lib/opened'
 import { WishItem } from '../pages/PublicPage'
 import { DEFAULT_CUSTOM_COLOR, themeOf, themeStyleOf } from '../lib/themes'
-import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days } from '../lib/campaigns'
+import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, millisecondsUntilManilaMidnight, priorityThemeFor } from '../lib/campaigns'
 import { isPageExpired } from '../lib/pages'
 
 afterEach(() => { cleanup(); vi.useRealTimers(); localStorage.clear(); sessionStorage.clear() })
@@ -111,6 +112,44 @@ describe('seasonal campaigns', () => {
     expect(isCampaignActive(holiday, new Date('2027-01-02T00:00:00+08:00'))).toBe(false)
   })
 
+  it('applies priority themes only within enabled windows and lets Christmas win overlaps', () => {
+    const christmas = {
+      id: 'christmas', is_enabled: true, is_priority: true,
+      start_month: 11, start_day: 25, end_month: 12, end_day: 25,
+    }
+    const newYear = {
+      id: 'new_year', is_enabled: true, is_priority: true,
+      start_month: 12, start_day: 2, end_month: 1, end_day: 1,
+    }
+    const anniversary = {
+      id: 'anniversary', is_enabled: true, is_priority: true,
+      start_month: 1, start_day: 1, end_month: 12, end_day: 31,
+    }
+
+    expect(priorityThemeFor([christmas, newYear, anniversary], new Date('2026-12-20T12:00:00+08:00'))).toBe('christmas')
+    expect(priorityThemeFor([christmas, newYear, anniversary], new Date('2026-12-26T12:00:00+08:00'))).toBe('new_year')
+    expect(priorityThemeFor([{ ...christmas, is_priority: false }], new Date('2026-12-20T12:00:00+08:00'))).toBeNull()
+    expect(priorityThemeFor([{ ...christmas, is_enabled: false }], new Date('2026-12-20T12:00:00+08:00'))).toBeNull()
+    expect(priorityThemeFor([anniversary], new Date('2026-06-20T12:00:00+08:00'))).toBeNull()
+  })
+
+  it('resolves every seasonal priority theme from its own configured window', () => {
+    const cases = [
+      ['halloween', 10, 1, 10, 31, '2026-10-15T12:00:00+08:00'],
+      ['valentines', 1, 15, 2, 14, '2026-02-01T12:00:00+08:00'],
+      ['new_year', 12, 2, 1, 1, '2026-12-26T12:00:00+08:00'],
+    ]
+    for (const [id, start_month, start_day, end_month, end_day, date] of cases) {
+      expect(priorityThemeFor([{
+        id, is_enabled: true, is_priority: true, start_month, start_day, end_month, end_day,
+      }], new Date(date))).toBe(id)
+    }
+  })
+
+  it('schedules the next theme check at Philippine midnight', () => {
+    expect(millisecondsUntilManilaMidnight(new Date('2026-11-25T15:59:30.000Z'))).toBe(30050)
+  })
+
   it('accepts event dates from today through 30 days ahead in Philippine time', () => {
     const today = new Date('2026-11-25T00:00:00+08:00')
     expect(isEventDateWithin30Days('2026-11-25', today)).toBe(true)
@@ -162,6 +201,7 @@ describe('seasonal campaigns', () => {
       title: 'Christmas Pamasko',
       description: 'Share gifts',
       is_enabled: true,
+      is_priority: true,
       start_month: 11,
       start_day: 1,
       end_month: 12,
@@ -180,10 +220,67 @@ describe('seasonal campaigns', () => {
       campaignId: 'christmas',
       title: 'Pamasko time',
       isEnabled: false,
+      isPriority: true,
       startMonth: 10,
       startDay: 15,
       giftOptions: { flower: 'Holiday flowers', cake: 'Holiday cake' },
     })))
+  })
+
+  it('keeps Anniversary permanently outside priority themes', async () => {
+    const onSave = vi.fn()
+    render(<CampaignSettings busy={false} onSave={onSave} campaigns={[{
+      id: 'anniversary',
+      title: 'Anniversary',
+      description: 'Share a link',
+      is_enabled: true,
+      is_priority: true,
+      start_month: 1,
+      start_day: 1,
+      end_month: 12,
+      end_day: 31,
+      gift_options: { flower: 'Anniversary flowers' },
+    }]} />)
+
+    expect(screen.getByText('Not a priority event')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Save campaign' }))
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      campaignId: 'anniversary',
+      isPriority: false,
+    })))
+  })
+})
+
+describe('seasonal opening', () => {
+  it('offers a Christmas tree opener and a shake alternative', () => {
+    const onActivate = vi.fn()
+    render(<SeasonalOpener theme="christmas" title="Maria’s Christmas letter" step={0} onActivate={onActivate} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tap the Christmas tree to open the letter' }))
+    expect(onActivate).toHaveBeenCalledOnce()
+    expect(screen.getByRole('button', { name: 'Enable shake to open' })).toBeTruthy()
+  })
+
+  it('opens when the enabled device sensor detects a shake', async () => {
+    const originalMotion = window.DeviceMotionEvent
+    const onActivate = vi.fn()
+    Object.defineProperty(window, 'DeviceMotionEvent', {
+      configurable: true,
+      value: { requestPermission: vi.fn().mockResolvedValue('granted') },
+    })
+    try {
+      render(<SeasonalOpener theme="christmas" title="Holiday wishes" step={0} onActivate={onActivate} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Enable shake to open' }))
+      await waitFor(() => expect(screen.getByText('Shake enabled. Tap the Christmas tree or give your phone a shake.')).toBeTruthy())
+
+      const motion = new Event('devicemotion')
+      Object.defineProperty(motion, 'accelerationIncludingGravity', { value: { x: 20, y: 0, z: 0 } })
+      act(() => window.dispatchEvent(motion))
+      expect(onActivate).toHaveBeenCalledOnce()
+    } finally {
+      if (originalMotion === undefined) delete window.DeviceMotionEvent
+      else Object.defineProperty(window, 'DeviceMotionEvent', { configurable: true, value: originalMotion })
+    }
   })
 })
 

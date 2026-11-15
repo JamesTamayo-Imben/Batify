@@ -55,3 +55,15 @@
 [data-theme='alon'] { --ground: 172 214 244; --accent: 23 73 112; --accent-deep: 14 53 82; --accent-soft: 231 243 252;
   --env-back: #B7D7EF; --env-side: #DDECF8; --env-bottom: #F2F8FC; --env-flap: #CDE3F4; --env-liner: #174970; --env-seal: #174970; --env-seal-deep: #0E3552;
   --flag-1: #174970; --flag-2: #E0518B; --flag-3: #FFFFFF; --flag-4: #14142B; }
+[data-theme='christmas'] { --ground: 214 234 224; --accent: 22 91 62; --accent-deep: 13 63 42; --accent-soft: 232 246 237;
+  --env-back: #D3EBDD; --env-side: #E5F3EA; --env-bottom: #F4FAF5; --env-flap: #DCEFE2; --env-liner: #165B3E; --env-seal: #C92F20; --env-seal-deep: #8E1D12;
+  --flag-1: #C92F20; --flag-2: #176B45; --flag-3: #F7C531; --flag-4: #FFFFFF; }
+[data-theme='halloween'] { --ground: 255 226 189; --accent: 91 48 123; --accent-deep: 63 30 88; --accent-soft: 246 235 255;
+  --env-back: #E8D8F3; --env-side: #F3E9F8; --env-bottom: #FCF8FF; --env-flap: #EDE1F5; --env-liner: #5B307B; --env-seal: #F28C28; --env-seal-deep: #A64E12;
+  --flag-1: #5B307B; --flag-2: #F28C28; --flag-3: #14142B; --flag-4: #F7C531; }
+[data-theme='valentines'] { --ground: 255 224 231; --accent: 160 35 68; --accent-deep: 117 21 47; --accent-soft: 255 239 242;
+  --env-back: #F4C8D1; --env-side: #FAE1E6; --env-bottom: #FFF4F6; --env-flap: #F8D5DC; --env-liner: #A02344; --env-seal: #A02344; --env-seal-deep: #75152F;
+  --flag-1: #A02344; --flag-2: #E05170; --flag-3: #FFE5E8; --flag-4: #F7C531; }
+[data-theme='new_year'] { --ground: 214 231 249; --accent: 23 73 112; --accent-deep: 14 53 82; --accent-soft: 232 242 252;
+  --env-back: #B7D7EF; --env-side: #DDECF8; --env-bottom: #F2F8FC; --env-flap: #CDE3F4; --env-liner: #174970; --env-seal: #F7C531; --env-seal-deep: #A36F00;
+  --flag-1: #174970; --flag-2: #F7C531; --flag-3: #E05170; --flag-4: #FFFFFF; }

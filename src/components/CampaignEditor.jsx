@@ -24,6 +24,7 @@ function CampaignEditor({ campaign, busy, onSave }) {
       title: campaign.title,
       description: campaign.description,
       isEnabled: campaign.is_enabled,
+      isPriority: campaign.id !== 'anniversary' && campaign.is_priority === true,
       start: monthDay(campaign.start_month, campaign.start_day),
       end: monthDay(campaign.end_month, campaign.end_day),
       selected: Object.keys(options),
@@ -61,6 +62,7 @@ function CampaignEditor({ campaign, busy, onSave }) {
       title: form.title,
       description: form.description,
       isEnabled: form.isEnabled,
+      isPriority: campaign.id !== 'anniversary' && form.isPriority,
       startMonth: start.month,
       startDay: start.day,
       endMonth: end.month,
@@ -80,6 +82,24 @@ function CampaignEditor({ campaign, busy, onSave }) {
           <input type="checkbox" checked={form.isEnabled} disabled={busy} onChange={(e) => update('isEnabled', e.target.checked)} />
           Enabled
         </label>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-ground/30 p-3">
+        <div>
+          <p className="font-bold">Site-wide event theme</p>
+          <p className="text-sm text-muted">
+            {campaign.id === 'anniversary'
+              ? 'Anniversary pages keep their chosen theme.'
+              : 'Automatically changes the site during this campaign window.'}
+          </p>
+        </div>
+        {campaign.id === 'anniversary' ? (
+          <span className="badge">Not a priority event</span>
+        ) : (
+          <label className="flex shrink-0 items-center gap-2 text-sm font-bold">
+            <input type="checkbox" checked={form.isPriority} disabled={busy} onChange={(e) => update('isPriority', e.target.checked)} />
+            Priority event
+          </label>
+        )}
       </div>
 
       <div>
@@ -130,7 +150,7 @@ export default function CampaignSettings({ campaigns, busy, error, onSave }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted">Enabled campaigns appear during their date window. Set fixed-date events to start 30 days ahead; Anniversary stays available year-round. Seasonal letters stay sealed until their event date.</p>
+      <p className="text-sm text-muted">Enabled campaigns appear during their date window in Philippine time. Priority events also theme the whole site while active; Christmas takes precedence when its window overlaps New Year. Anniversary stays available year-round without a site-wide theme.</p>
       {campaigns.map((campaign) => (
         <CampaignEditor key={campaign.id} campaign={campaign} busy={busy} onSave={onSave} />
       ))}
