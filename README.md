@@ -61,7 +61,9 @@
   decorations during their configured Philippine-time window. Christmas wins
   when its window overlaps New Year; Anniversary is never a priority event.
   Seasonal letters use an event illustration as the opening control, with
-  optional motion-sensor shake support where available.
+  optional motion-sensor shake support where available. The Home page offers
+  browser-local previews for Anniversary and enabled priority campaigns; they
+  do not change event scheduling. Christmas uses falling branched snowflakes.
 - A lightweight owner dashboard for page activity and wish management.
 - Dedicated About Batify, developer story, Contact, How it works, and FAQ pages
   linked from the responsive footer.

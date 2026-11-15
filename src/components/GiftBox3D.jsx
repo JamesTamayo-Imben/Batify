@@ -5,6 +5,7 @@ const EVENT_BOXES = {
   halloween: { color: '#6A3F86', ribbon: '#F28C28' },
   valentines: { color: '#C92F52', ribbon: '#FFE5E8' },
   new_year: { color: '#174970', ribbon: '#F7C531' },
+  anniversary: { color: '#C98B57', ribbon: '#F7D983' },
 }
 
 function Bow() {

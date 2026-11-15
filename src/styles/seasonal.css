@@ -3,17 +3,24 @@
   z-index: 40;
   inset: 0;
   pointer-events: none;
-  opacity: .38;
-  background-image:
-    radial-gradient(2px 2px at 22px 30px, #fff 98%, transparent),
-    radial-gradient(3px 3px at 78px 90px, #fff 98%, transparent),
-    radial-gradient(2px 2px at 132px 44px, #fff 98%, transparent);
-  background-size: 180px 160px, 240px 220px, 300px 240px;
-  animation: seasonal-snowfall 18s linear infinite;
+  overflow: hidden;
 }
 
-@keyframes seasonal-snowfall {
-  to { background-position: 0 160px, 0 220px, 0 240px; }
+.snowflake {
+  position: absolute;
+  top: -40px;
+  left: var(--snow-x);
+  display: block;
+  width: var(--snow-size);
+  color: #fff;
+  opacity: .78;
+  filter: drop-shadow(0 1px 2px rgb(22 91 62 / .35));
+  animation: snowflake-fall var(--snow-duration) linear var(--snow-delay) infinite;
+}
+.snowflake svg { display: block; width: 100%; fill: none; stroke: currentColor; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.snowflake-center { fill: currentColor; stroke: none; }
+@keyframes snowflake-fall {
+  to { transform: translate3d(var(--snow-drift), calc(100vh + 60px), 0) rotate(360deg); }
 }
 
 .event-mark { display: inline-grid; width: 1.35rem; height: 1.35rem; }
@@ -68,11 +75,32 @@
 .seasonal-opener.is-opening .seasonal-gift { animation: event-gift-pop .6s cubic-bezier(.16, 1, .3, 1) .2s both; }
 @keyframes event-gift-pop { 45% { transform: translateY(-22px) rotate(8deg) scale(1.08); } to { transform: translateY(0) rotate(0) scale(1); } }
 
+.theme-preview-button { animation: preview-invite 4.2s ease-in-out infinite; }
+.theme-preview-button.is-toggling { animation: preview-toggle .82s cubic-bezier(.16, 1, .3, 1); }
+@keyframes preview-invite {
+  0%, 82%, 100% { transform: translateY(0) rotate(0); }
+  86% { transform: translateY(-5px); }
+  90% { transform: translateY(0) rotate(0); }
+  94% { transform: rotate(-3deg); }
+  97% { transform: rotate(3deg); }
+}
+@keyframes preview-toggle {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  25% { transform: translateY(-8px) rotate(0); }
+  45% { transform: translateY(0) rotate(0); }
+  62% { transform: rotate(-7deg); }
+  78% { transform: rotate(7deg); }
+  90% { transform: rotate(-3deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .seasonal-snow,
   .seasonal-trigger,
   .seasonal-opener.is-opening .seasonal-trigger,
   .seasonal-opener.is-opening .seasonal-letter,
-  .seasonal-opener.is-opening .seasonal-gift { animation: none; }
+  .seasonal-opener.is-opening .seasonal-gift,
+  .theme-preview-button,
+  .theme-preview-button.is-toggling { animation: none; }
+  .snowflake { top: var(--snow-top); animation: none; }
   .seasonal-opener.is-opening .seasonal-letter { opacity: 1; transform: none; }
 }

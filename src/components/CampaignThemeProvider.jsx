@@ -1,8 +1,14 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { CAMPAIGN_COLUMNS, millisecondsUntilManilaMidnight, priorityThemeFor } from '../lib/campaigns'
 import { sb } from '../lib/supabase'
+import Snowfall from './Snowfall'
 
-const CampaignThemeContext = createContext({ themeId: null, loading: true })
+const CampaignThemeContext = createContext({
+  themeId: null,
+  previewThemeId: null,
+  setPreviewThemeId: () => {},
+  loading: true,
+})
 
 export function useCampaignTheme() {
   return useContext(CampaignThemeContext)
@@ -10,6 +16,7 @@ export function useCampaignTheme() {
 
 export default function CampaignThemeProvider({ children }) {
   const [themeId, setThemeId] = useState(null)
+  const [previewThemeId, setPreviewThemeId] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -54,10 +61,11 @@ export default function CampaignThemeProvider({ children }) {
     }
   }, [])
 
+  const activeThemeId = previewThemeId || themeId
   return (
-    <CampaignThemeContext.Provider value={{ themeId, loading }}>
-      <div data-theme={themeId || 'confetti'} className="min-h-dvh bg-paper">
-        {themeId === 'christmas' && <div className="seasonal-snow" aria-hidden="true" />}
+    <CampaignThemeContext.Provider value={{ themeId: activeThemeId, previewThemeId, setPreviewThemeId, loading }}>
+      <div data-theme={activeThemeId || 'confetti'} className="min-h-dvh bg-paper">
+        {activeThemeId === 'christmas' && <Snowfall />}
         {children}
       </div>
     </CampaignThemeContext.Provider>

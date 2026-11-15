@@ -10,13 +10,60 @@ import Icon from '../components/Icon'
 import { SLOTS } from '../lib/ads'
 import { GIFTS } from '../lib/gifts'
 import { fireConfetti } from '../lib/confetti'
-import { CAMPAIGN_COLUMNS, isCampaignActive } from '../lib/campaigns'
+import { CAMPAIGN_COLUMNS, isCampaignActive, occasionOf, previewThemeForCampaign } from '../lib/campaigns'
 import { FAQS } from '../lib/faqs'
 import { sb } from '../lib/supabase'
 import { useCampaignTheme } from '../components/CampaignThemeProvider'
 import useTitle from '../lib/useTitle'
+import { EventMark } from '../components/SeasonalOpener'
 
 const SAMPLE = 'Thank you for making my year loud, messy and happy. Leave me a wish.'
+
+export function CampaignCard({ campaign, isActive, previewThemeId, setPreviewThemeId }) {
+  const [isAnimating, setIsAnimating] = useState(false)
+  const previewTheme = previewThemeForCampaign(campaign)
+  const eventLabel = occasionOf(campaign.id)?.label || campaign.title
+  const isPreviewing = previewThemeId === previewTheme
+
+  return (
+    <article className="card flex h-full flex-col bg-white transition-transform hover:-translate-y-0.5">
+      {isActive ? (
+        <Link to={`/create?campaign=${encodeURIComponent(campaign.id)}`} className="flex flex-1 flex-col">
+          <h3 className="text-2xl">{campaign.title}</h3>
+          <p className="mt-2 flex-1 text-muted">{campaign.description}</p>
+          <span className="link mt-5 inline-block">Create a link</span>
+        </Link>
+      ) : (
+        <div className="flex flex-1 flex-col">
+          <h3 className="text-2xl">{campaign.title}</h3>
+          <p className="mt-2 flex-1 text-muted">{campaign.description}</p>
+          <span className="mt-5 inline-block text-sm font-semibold text-muted">Link creation opens during the event.</span>
+        </div>
+      )}
+      {previewTheme && (
+        <div className="mt-5 border-t border-ink/15 pt-4">
+          <p className="mb-3 text-sm text-muted">Try the {eventLabel} look on this device. It won’t change the event schedule.</p>
+          <button
+            type="button"
+            className={`btn-sun w-full theme-preview-button ${isAnimating ? 'is-toggling' : ''}`}
+            aria-label={isPreviewing
+              ? `Turn off theme preview for ${eventLabel}`
+              : `Preview ${eventLabel} theme`}
+            aria-pressed={isPreviewing}
+            onClick={() => {
+              setPreviewThemeId(isPreviewing ? null : previewTheme)
+              setIsAnimating(true)
+            }}
+            onAnimationEnd={() => setIsAnimating(false)}
+          >
+            <EventMark theme={previewTheme} className="event-mark" />
+            {isPreviewing ? 'Turn off preview' : 'Preview theme'}
+          </button>
+        </div>
+      )}
+    </article>
+  )
+}
 
 function HeroEnvelope() {
   const e = useEnvelope({ max: 3, onStep: (n) => { if (n === 3) fireConfetti({ x: 0.72, y: 0.42, count: 70, power: 0.8 }) } })
@@ -45,7 +92,7 @@ const STEPS = [
 ]
 
 export default function Home() {
-  const { themeId } = useCampaignTheme()
+  const { themeId, previewThemeId, setPreviewThemeId } = useCampaignTheme()
   useTitle('Batify: birthday letters, wishes and gifts in one link')
   const [boxOpen, setBoxOpen] = useState(false)
   const [campaigns, setCampaigns] = useState([])
@@ -57,7 +104,9 @@ export default function Home() {
       .then(({ data, error }) => {
         if (dead) return
         if (error) setCampaignError('Seasonal links are temporarily unavailable.')
-        else setCampaigns((data || []).filter((campaign) => isCampaignActive(campaign)))
+        else setCampaigns((data || []).filter((campaign) =>
+          isCampaignActive(campaign) || (campaign.is_enabled && previewThemeForCampaign(campaign)),
+        ))
       })
     return () => { dead = true }
   }, [])
@@ -91,12 +140,13 @@ export default function Home() {
             {campaignError && <p role="status" className="mt-3 text-sm font-semibold text-flag">{campaignError}</p>}
             <div className={`mt-5 grid gap-3 ${campaigns.length === 1 ? 'sm:max-w-sm sm:grid-cols-1' : campaigns.length === 2 ? 'sm:mx-auto sm:max-w-4xl sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
               {campaigns.map((campaign) => (
-                <Link key={campaign.id} to={`/create?campaign=${encodeURIComponent(campaign.id)}`}
-                  className="card flex h-full flex-col bg-white transition-transform hover:-translate-y-0.5">
-                  <h3 className="text-2xl">{campaign.title}</h3>
-                  <p className="mt-2 flex-1 text-muted">{campaign.description}</p>
-                  <span className="link mt-5 inline-block">Create a link</span>
-                </Link>
+                <CampaignCard
+                  key={campaign.id}
+                  campaign={campaign}
+                  isActive={isCampaignActive(campaign)}
+                  previewThemeId={previewThemeId}
+                  setPreviewThemeId={setPreviewThemeId}
+                />
               ))}
             </div>
           </div>

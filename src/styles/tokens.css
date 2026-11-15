@@ -67,3 +67,6 @@
 [data-theme='new_year'] { --ground: 214 231 249; --accent: 23 73 112; --accent-deep: 14 53 82; --accent-soft: 232 242 252;
   --env-back: #B7D7EF; --env-side: #DDECF8; --env-bottom: #F2F8FC; --env-flap: #CDE3F4; --env-liner: #174970; --env-seal: #F7C531; --env-seal-deep: #A36F00;
   --flag-1: #174970; --flag-2: #F7C531; --flag-3: #E05170; --flag-4: #FFFFFF; }
+[data-theme='anniversary'] { --ground: 246 225 203; --accent: 130 72 43; --accent-deep: 94 49 29; --accent-soft: 252 241 229;
+  --env-back: #F4D7B5; --env-side: #FAE9D4; --env-bottom: #FFF8EF; --env-flap: #F7E0C5; --env-liner: #82482B; --env-seal: #C98B57; --env-seal-deep: #82482B;
+  --flag-1: #82482B; --flag-2: #D6A94B; --flag-3: #FFF8EF; --flag-4: #C98B57; }

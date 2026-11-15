@@ -15,6 +15,7 @@ import FlipCountdown from '../components/FlipCountdown'
 import GiftBox3D from '../components/GiftBox3D'
 import GiftPicker from '../components/GiftPicker'
 import SeasonalOpener from '../components/SeasonalOpener'
+import Snowfall from '../components/Snowfall'
 import ThemePicker from '../components/ThemePicker'
 import CampaignSettings from '../components/CampaignEditor'
 import Turnstile from '../components/Turnstile'
@@ -22,11 +23,12 @@ import AboutDeveloper from '../pages/AboutDeveloper'
 import Admin from '../pages/Admin'
 import Contact from '../pages/Contact'
 import EditPage from '../pages/EditPage'
+import { CampaignCard } from '../pages/Home'
 import { clearDraft, loadDraft, saveDraft } from '../lib/draft'
 import { hasOpened, markOpened, wishUnwrapped } from '../lib/opened'
 import { WishItem } from '../pages/PublicPage'
 import { DEFAULT_CUSTOM_COLOR, themeOf, themeStyleOf } from '../lib/themes'
-import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, millisecondsUntilManilaMidnight, priorityThemeFor } from '../lib/campaigns'
+import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, millisecondsUntilManilaMidnight, priorityThemeFor, previewThemeForCampaign } from '../lib/campaigns'
 import { isPageExpired } from '../lib/pages'
 
 afterEach(() => { cleanup(); vi.useRealTimers(); localStorage.clear(); sessionStorage.clear() })
@@ -131,6 +133,72 @@ describe('seasonal campaigns', () => {
     expect(priorityThemeFor([{ ...christmas, is_priority: false }], new Date('2026-12-20T12:00:00+08:00'))).toBeNull()
     expect(priorityThemeFor([{ ...christmas, is_enabled: false }], new Date('2026-12-20T12:00:00+08:00'))).toBeNull()
     expect(priorityThemeFor([anniversary], new Date('2026-06-20T12:00:00+08:00'))).toBeNull()
+    expect(previewThemeForCampaign(anniversary)).toBe('anniversary')
+  })
+
+  it.each([
+    ['christmas', 'Christmas'],
+    ['halloween', 'Halloween'],
+    ['valentines', "Valentine's Day"],
+    ['new_year', 'New Year'],
+  ])('offers a local preview toggle for priority event %s', (id, label) => {
+    function StatefulCampaignCard() {
+      const [previewThemeId, setPreviewThemeId] = useState(null)
+      return (
+        <CampaignCard
+          campaign={{ id, title: label, description: 'Share a link', is_priority: true }}
+          isActive={false}
+          previewThemeId={previewThemeId}
+          setPreviewThemeId={setPreviewThemeId}
+        />
+      )
+    }
+
+    render(<MemoryRouter><StatefulCampaignCard /></MemoryRouter>)
+    const previewButton = screen.getByRole('button', { name: `Preview ${label} theme` })
+    expect(previewButton.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(previewButton)
+    expect(screen.getByRole('button', { name: /Turn off theme preview/ }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: /Turn off theme preview/ }))
+    expect(screen.getByRole('button', { name: `Preview ${label} theme` }).getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('only offers priority previews for priority campaigns, while Anniversary stays previewable', () => {
+    expect(previewThemeForCampaign({ id: 'christmas', is_priority: true })).toBe('christmas')
+    expect(previewThemeForCampaign({ id: 'christmas', is_priority: false })).toBeNull()
+    expect(previewThemeForCampaign({ id: 'anniversary', is_priority: false })).toBe('anniversary')
+  })
+
+  it('lets visitors toggle a local Anniversary preview without changing priority rules', () => {
+    function StatefulCampaignCard() {
+      const [previewThemeId, setPreviewThemeId] = useState(null)
+      return (
+        <CampaignCard
+          campaign={{ id: 'anniversary', title: 'Anniversary', description: 'Share a link' }}
+          isActive={false}
+          previewThemeId={previewThemeId}
+          setPreviewThemeId={setPreviewThemeId}
+        />
+      )
+    }
+
+    render(<MemoryRouter><StatefulCampaignCard /></MemoryRouter>)
+    const button = screen.getByRole('button', { name: /Preview Anniversary theme/ })
+    expect(button.getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByText('Link creation opens during the event.')).toBeTruthy()
+
+    fireEvent.click(button)
+    expect(button.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /Turn off theme preview/ })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: /Turn off theme preview/ }))
+    expect(screen.getByRole('button', { name: /Preview Anniversary theme/ }).getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('renders falling snowflakes with branched arms', () => {
+    const { container } = render(<Snowfall />)
+    expect(container.querySelectorAll('.snowflake')).toHaveLength(18)
+    expect(container.querySelector('.snowflake svg path')?.getAttribute('d')).toContain('L38 12')
   })
 
   it('resolves every seasonal priority theme from its own configured window', () => {
@@ -258,6 +326,16 @@ describe('seasonal opening', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Tap the Christmas tree to open the letter' }))
     expect(onActivate).toHaveBeenCalledOnce()
+    expect(screen.getByRole('button', { name: 'Enable shake to open' })).toBeTruthy()
+  })
+
+  it.each([
+    ['halloween', 'pumpkin'],
+    ['valentines', 'heart'],
+    ['new_year', 'fireworks'],
+  ])('keeps the %s opener themed with shake as an optional alternative', (theme, name) => {
+    render(<SeasonalOpener theme={theme} title="Special event wishes" step={0} onActivate={vi.fn()} />)
+    expect(screen.getByRole('button', { name: `Tap the ${name} to open the letter` })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Enable shake to open' })).toBeTruthy()
   })
 

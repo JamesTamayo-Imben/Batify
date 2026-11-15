@@ -5,6 +5,7 @@ const EVENT_NAMES = {
   halloween: 'pumpkin',
   valentines: 'heart',
   new_year: 'fireworks',
+  anniversary: 'anniversary rings',
 }
 
 function SeasonalMark({ theme, className = '' }) {
@@ -34,6 +35,15 @@ function SeasonalMark({ theme, className = '' }) {
         <path d="M50 86S12 63 12 37c0-23 29-29 38-8 9-21 38-15 38 8 0 26-38 49-38 49z" fill="#E05170" stroke="#14142B" strokeWidth="3" strokeLinejoin="round" />
         <path d="M50 67c-7-8-16-12-16-19 0-9 12-11 16-2 4-9 16-7 16 2 0 7-9 11-16 19z" fill="#FFE5E8" />
         <path d="M50 15v13m-7-6h14" stroke="#F7C531" strokeWidth="4" strokeLinecap="round" />
+      </svg>
+    )
+  }
+  if (theme === 'anniversary') {
+    return (
+      <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
+        <circle cx="39" cy="53" r="22" fill="none" stroke="#C98B57" strokeWidth="8" />
+        <circle cx="61" cy="53" r="22" fill="none" stroke="#D6A94B" strokeWidth="8" />
+        <path d="M50 18v12m-6-6h12" stroke="#C92F52" strokeWidth="4" strokeLinecap="round" />
       </svg>
     )
   }

@@ -88,6 +88,7 @@ export const OCCASIONS = {
   anniversary: {
     id: 'anniversary',
     priorityTheme: null,
+    previewTheme: 'anniversary',
     label: 'Anniversary',
     dateLabel: 'Anniversary date',
     titlePlaceholder: 'Our anniversary',
@@ -114,6 +115,13 @@ const PRIORITY_THEME_ORDER = ['christmas', 'new_year', 'valentines', 'halloween'
 
 export function occasionOf(id) {
   return OCCASIONS[id] ? OCCASIONS[id] : null
+}
+
+export function previewThemeForCampaign(campaign) {
+  const occasion = occasionOf(campaign?.id)
+  if (campaign?.id === 'anniversary') return occasion?.previewTheme || null
+  if (campaign?.is_priority === true) return occasion?.priorityTheme || null
+  return null
 }
 
 export function priorityThemeFor(campaigns, now = new Date()) {
