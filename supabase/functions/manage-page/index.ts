@@ -6,7 +6,8 @@
 // we do not CAPTCHA the owner's dashboard; we rate-limit per IP instead.
 import {
   checkUpload, clean, clientIp, EXT, isValidDate, json, MEDIA_MAX, normalizeGcash,
-  isValidTheme, parseTimestamp, preflight, rateLimitDurable, serviceClient, storagePathFromUrl,
+  isValidTheme, parseTimestamp, pendingWishMediaPath, preflight, publishPendingWishMedia,
+  rateLimitDurable, serviceClient, signPendingWishMedia, storagePathFromUrl,
 } from "../_shared/common.ts";
 
 Deno.serve(async (req) => {
@@ -56,6 +57,22 @@ Deno.serve(async (req) => {
           sb.from("wishes").select("*").eq("page_id", page.id).order("created_at", { ascending: false }),
           sb.from("contributions").select("*").eq("page_id", page.id).order("created_at", { ascending: false }),
         ]);
+        if (w.error || c.error) {
+          console.error("Could not load page dashboard data:", w.error || c.error);
+          return json({ error: "Could not load page data." }, 500);
+        }
+        let wishes: typeof w.data = [];
+        try {
+          wishes = await Promise.all((w.data || []).map(async (wish) => {
+            if (typeof wish.media_url !== "string" || !wish.media_url.startsWith("pending-wish-media:")) return wish;
+            const path = pendingWishMediaPath(wish.media_url, page.id);
+            if (!path) throw new Error("Invalid pending wish-media path.");
+            return { ...wish, media_url: await signPendingWishMedia(sb, path) };
+          }));
+        } catch (error) {
+          console.error("Could not sign pending wish media:", error);
+          return json({ error: "Could not load pending wish media." }, 500);
+        }
         const contributions = c.data || [];
         const paths = contributions.map((x) => x.proof_url).filter(Boolean) as string[];
         const signed: Record<string, string> = {};
@@ -65,7 +82,7 @@ Deno.serve(async (req) => {
         }
         return json({
           page,
-          wishes: w.data || [],
+          wishes,
           contributions: contributions.map((x) => ({
             ...x, proof_signed_url: x.proof_url ? signed[x.proof_url] || null : null,
           })),
@@ -226,9 +243,44 @@ Deno.serve(async (req) => {
 
       // ---------------------------------------------------------- approve-wish
       case "approve-wish": {
-        const { data } = await sb.from("wishes").update({ is_approved: true })
-          .eq("id", clean(body.wishId, 64)).eq("page_id", page.id).select("id");
-        if (!data?.length) return json({ error: "Wish not found." }, 404);
+        const { data: wish, error: wishError } = await sb.from("wishes").select("id, media_url, is_approved")
+          .eq("id", clean(body.wishId, 64)).eq("page_id", page.id).maybeSingle();
+        if (wishError) {
+          console.error("Could not load wish for approval:", wishError);
+          return json({ error: "Could not approve this wish." }, 500);
+        }
+        if (!wish) return json({ error: "Wish not found." }, 404);
+        if (wish.is_approved) return json({ ok: true });
+
+        const patch: Record<string, unknown> = { is_approved: true };
+        let pendingPath: string | null = null;
+        let publicPath: string | null = null;
+        if (typeof wish.media_url === "string" && wish.media_url.startsWith("pending-wish-media:")) {
+          pendingPath = pendingWishMediaPath(wish.media_url, page.id);
+          if (!pendingPath) return json({ error: "Invalid pending wish media." }, 500);
+          try {
+            const published = await publishPendingWishMedia(sb, page.id, pendingPath);
+            patch.media_url = published.publicUrl;
+            publicPath = published.publicPath;
+          } catch (error) {
+            console.error("Could not publish approved wish media:", error);
+            return json({ error: "Could not publish this wish's media." }, 500);
+          }
+        }
+        const { data, error } = await sb.from("wishes").update(patch)
+          .eq("id", wish.id).eq("page_id", page.id).eq("is_approved", false).select("id");
+        if (error || !data?.length) {
+          if (publicPath) {
+            const { error: cleanupError } = await sb.storage.from("wish-media").remove([publicPath]);
+            if (cleanupError) console.error("Could not clean up published media after approval failed:", cleanupError);
+          }
+          if (error) console.error("Could not approve wish:", error);
+          return json({ error: "Could not approve this wish." }, error ? 500 : 409);
+        }
+        if (pendingPath) {
+          const { error: cleanupError } = await sb.storage.from("wish-media-pending").remove([pendingPath]);
+          if (cleanupError) console.error("Could not remove private media after approval:", cleanupError);
+        }
         return json({ ok: true });
       }
 
@@ -237,8 +289,16 @@ Deno.serve(async (req) => {
         const { data } = await sb.from("wishes").delete()
           .eq("id", clean(body.wishId, 64)).eq("page_id", page.id).select("id, media_url");
         if (!data?.length) return json({ error: "Wish not found." }, 404);
-        const path = storagePathFromUrl(data[0].media_url, "wish-media");
-        if (path) await sb.storage.from("wish-media").remove([path]);
+        const pendingPath = pendingWishMediaPath(data[0].media_url, page.id);
+        const path = pendingPath || storagePathFromUrl(data[0].media_url, "wish-media");
+        if (path) {
+          const bucket = pendingPath ? "wish-media-pending" : "wish-media";
+          const { error } = await sb.storage.from(bucket).remove([path]);
+          if (error) {
+            console.error("Could not remove wish media after deletion:", error);
+            return json({ error: "Wish was deleted, but its media could not be removed." }, 500);
+          }
+        }
         return json({ ok: true });
       }
 

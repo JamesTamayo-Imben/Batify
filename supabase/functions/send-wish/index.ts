@@ -3,7 +3,7 @@
 //   mode=contribution    : record a GCash contribution with screenshot proof
 //   mode=report          : report a wish for moderation
 import {
-  checkUpload, clean, clientIp, json, MEDIA_MAX, MEDIA_MIMES, PROOF_MAX, PROOF_MIMES,
+  checkUpload, clean, clientIp, json, MEDIA_MAX, MEDIA_MIMES, PENDING_WISH_MEDIA_PREFIX, PROOF_MAX, PROOF_MIMES,
   preflight, rateLimitDurable, serviceClient, stripUrls, verifyTurnstile,
 } from "../_shared/common.ts";
 import { notifyPageOwner } from "../_shared/push.ts";
@@ -112,6 +112,8 @@ Deno.serve(async (req) => {
 
     let mediaUrl: string | null = null;
     let mediaType: string | null = null;
+    let mediaBucket: "wish-media" | "wish-media-pending" | null = null;
+    let mediaPath: string | null = null;
     const file = form.get("file");
 
     if (giftType === "media") {
@@ -121,11 +123,14 @@ Deno.serve(async (req) => {
       const chk = await checkUpload(file, MEDIA_MIMES, MEDIA_MAX);
       if ("error" in chk) return json({ error: chk.error }, 400);
 
-      const path = `${page.id}/${crypto.randomUUID()}.${chk.ext}`;
-      const up = await sb.storage.from("wish-media")
-        .upload(path, chk.bytes, { contentType: chk.mime, upsert: false });
+      mediaBucket = page.auto_approve_wishes === true ? "wish-media" : "wish-media-pending";
+      mediaPath = `${page.id}/${crypto.randomUUID()}.${chk.ext}`;
+      const up = await sb.storage.from(mediaBucket)
+        .upload(mediaPath, chk.bytes, { contentType: chk.mime, upsert: false });
       if (up.error) { console.error(up.error); return json({ error: "Upload failed." }, 500); }
-      mediaUrl = sb.storage.from("wish-media").getPublicUrl(path).data.publicUrl;
+      mediaUrl = mediaBucket === "wish-media"
+        ? sb.storage.from("wish-media").getPublicUrl(mediaPath).data.publicUrl
+        : `${PENDING_WISH_MEDIA_PREFIX}${mediaPath}`;
       mediaType = chk.mime.startsWith("video/") ? "video" : "image";
     }
 
@@ -141,6 +146,10 @@ Deno.serve(async (req) => {
 
     if (error) {
       console.error(error);
+      if (mediaBucket && mediaPath) {
+        const { error: cleanupError } = await sb.storage.from(mediaBucket).remove([mediaPath]);
+        if (cleanupError) console.error("Could not remove wish media after the wish insert failed:", cleanupError);
+      }
       return json({ error: "Could not save your wish." }, 500);
     }
     await notifyPageOwner(sb, page.id, {

@@ -407,7 +407,8 @@ alter table public.pages alter column expires_at set not null;
 
 -- ---------------------------------------------------------------------------
 -- STORAGE
--- wish-media      : PUBLIC bucket, gift photos/videos + GCash QR images (25 MB)
+-- wish-media      : PUBLIC bucket, approved gift media + GCash QR images (25 MB)
+-- wish-media-pending : PRIVATE bucket, gift photos/videos awaiting approval
 -- payment-proofs  : PRIVATE bucket, sender payment screenshots (10 MB).
 --                   Only the service role can read; the owner dashboard gets
 --                   short-lived signed URLs from the manage-page function.
@@ -416,6 +417,16 @@ alter table public.pages alter column expires_at set not null;
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
   'wish-media', 'wish-media', true, 26214400,
+  array['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/webm']
+)
+on conflict (id) do update
+  set public = excluded.public,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'wish-media-pending', 'wish-media-pending', false, 26214400,
   array['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/webm']
 )
 on conflict (id) do update
@@ -434,7 +445,6 @@ on conflict (id) do update
       allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists "wish-media public read" on storage.objects;
-create policy "wish-media public read" on storage.objects
-  for select using (bucket_id = 'wish-media');
 
--- No storage policies for anon writes, and none for payment-proofs at all.
+-- Public media is retrievable by known URL, but anonymous object listing is not
+-- allowed. Pending media and payment proofs remain private; service_role only.

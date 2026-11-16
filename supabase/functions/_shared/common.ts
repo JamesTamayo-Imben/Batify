@@ -244,3 +244,83 @@ export function storagePathFromUrl(url: string | null, bucket: string): string |
   const i = url.indexOf(marker);
   return i === -1 ? null : url.slice(i + marker.length).split("?")[0];
 }
+
+export const PENDING_WISH_MEDIA_PREFIX = "pending-wish-media:";
+
+export function pendingWishMediaPath(mediaUrl: unknown, pageId: string): string | null {
+  if (typeof mediaUrl !== "string" || !mediaUrl.startsWith(PENDING_WISH_MEDIA_PREFIX)) return null;
+  const path = mediaUrl.slice(PENDING_WISH_MEDIA_PREFIX.length);
+  if (!path.startsWith(`${pageId}/`)) return null;
+  const filename = path.slice(pageId.length + 1);
+  if (!/^[0-9a-f-]{36}\.(jpg|png|webp|gif|mp4|webm)$/.test(filename)) return null;
+  return path;
+}
+
+export async function signPendingWishMedia(
+  sb: ReturnType<typeof serviceClient>,
+  path: string,
+): Promise<string> {
+  const { data, error } = await sb.storage.from("wish-media-pending").createSignedUrl(path, 3600);
+  if (error || !data?.signedUrl) throw new Error(error?.message || "Could not create a signed wish-media URL.");
+  return data.signedUrl;
+}
+
+export async function privatizeLegacyWishMedia(
+  sb: ReturnType<typeof serviceClient>,
+  pageId: string,
+  mediaUrl: string,
+): Promise<{ pendingUrl: string; pendingPath: string; publicPath: string }> {
+  const publicPath = storagePathFromUrl(mediaUrl, "wish-media");
+  if (!publicPath || !publicPath.startsWith(`${pageId}/`)) {
+    throw new Error("Invalid legacy wish-media URL.");
+  }
+  const filename = publicPath.slice(pageId.length + 1);
+  if (!/^[0-9a-f-]{36}\.(jpg|png|webp|gif|mp4|webm)$/.test(filename)) {
+    throw new Error("Invalid legacy wish-media path.");
+  }
+  const extension = filename.split(".").pop()!;
+  const mime = Object.entries(EXT).find(([, ext]) => ext === extension)?.[0];
+  if (!mime) throw new Error("Unsupported legacy wish-media type.");
+  const { data: file, error: downloadError } = await sb.storage.from("wish-media").download(publicPath);
+  if (downloadError || !file) throw new Error(downloadError?.message || "Could not read legacy wish media.");
+
+  const pendingPath = `${pageId}/${crypto.randomUUID()}.${extension}`;
+  const { error: uploadError } = await sb.storage.from("wish-media-pending")
+    .upload(pendingPath, new Uint8Array(await file.arrayBuffer()), { contentType: mime, upsert: false });
+  if (uploadError) throw new Error(uploadError.message);
+
+  return {
+    pendingPath,
+    pendingUrl: `${PENDING_WISH_MEDIA_PREFIX}${pendingPath}`,
+    publicPath,
+  };
+}
+
+export async function publishPendingWishMedia(
+  sb: ReturnType<typeof serviceClient>,
+  pageId: string,
+  pendingPath: string,
+): Promise<{ publicUrl: string; publicPath: string }> {
+  const filename = pendingPath.slice(pageId.length + 1);
+  if (!pendingWishMediaPath(`${PENDING_WISH_MEDIA_PREFIX}${pendingPath}`, pageId)) {
+    throw new Error("Invalid pending wish-media path.");
+  }
+  const { data: file, error: downloadError } = await sb.storage.from("wish-media-pending").download(pendingPath);
+  if (downloadError || !file) throw new Error(downloadError?.message || "Could not read pending wish media.");
+
+  const extension = filename.split(".").pop()!;
+  const mime = Object.entries(EXT).find(([, ext]) => ext === extension)?.[0];
+  if (!mime) throw new Error("Unsupported pending wish-media type.");
+  const publicPath = `${pageId}/${crypto.randomUUID()}.${extension}`;
+  const { error: uploadError } = await sb.storage.from("wish-media")
+    .upload(publicPath, new Uint8Array(await file.arrayBuffer()), {
+      contentType: mime,
+      upsert: false,
+    });
+  if (uploadError) throw new Error(uploadError.message);
+
+  return {
+    publicPath,
+    publicUrl: sb.storage.from("wish-media").getPublicUrl(publicPath).data.publicUrl,
+  };
+}

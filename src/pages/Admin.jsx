@@ -112,6 +112,20 @@ export default function Admin() {
     }
   }
 
+  async function securePendingMedia() {
+    if (busy) return
+    setBusy(true); setError(''); setNote('')
+    try {
+      const result = await call('secure-pending-media')
+      setNote(`${result.migrated} older pending upload${result.migrated === 1 ? '' : 's'} secured.${result.failed ? ` ${result.failed} need attention; check server logs.` : ''}${result.hasMore ? ' Run this again to process the next batch.' : ''}`)
+      await load('wishes')
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function login(e) {
     e.preventDefault()
     const s = input.trim()
@@ -251,6 +265,12 @@ export default function Admin() {
 
         {tab === 'wishes' && (
           <div className="space-y-3">
+            <div className="card flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted">Secure older pending uploads left in the public bucket before this update. Processes up to 20 at a time.</p>
+              <button type="button" className="btn-ghost btn-sm shrink-0" disabled={busy} onClick={securePendingMedia}>
+                Secure older uploads
+              </button>
+            </div>
             <label className="flex min-h-11 items-center gap-2 text-sm font-semibold" htmlFor="pending-only">
               <input id="pending-only" type="checkbox" checked={pendingOnly} disabled={busy} onChange={(e) => setPendingOnly(e.target.checked)} />
               Pending only

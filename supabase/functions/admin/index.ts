@@ -3,7 +3,8 @@
 // Can: stats, list/search pages (incl. edit tokens, for owner support),
 // unpublish/delete pages, moderate wishes + reports, verify payments.
 import {
-  clean, clientIp, json, preflight, rateLimitDurable, serviceClient, storagePathFromUrl,
+  clean, clientIp, json, pendingWishMediaPath, preflight, privatizeLegacyWishMedia,
+  publishPendingWishMedia, rateLimitDurable, serviceClient, signPendingWishMedia, storagePathFromUrl,
 } from "../_shared/common.ts";
 
 function safeEqual(a: string, b: string): boolean {
@@ -36,6 +37,13 @@ Deno.serve(async (req) => {
     const sb = serviceClient();
     const id = (k: string) => clean(body[k], 64);
     const action = clean(body.action, 40);
+    async function addSignedWishMedia(wish: Record<string, unknown> | null) {
+      if (!wish || typeof wish.media_url !== "string" || !wish.media_url.startsWith("pending-wish-media:")) return wish;
+      const pageId = typeof wish.page_id === "string" ? wish.page_id : "";
+      const path = pendingWishMediaPath(wish.media_url, pageId);
+      if (!path) throw new Error("Invalid pending wish-media path.");
+      return { ...wish, media_url: await signPendingWishMedia(sb, path) };
+    }
 
     switch (action) {
       case "stats": {
@@ -133,7 +141,7 @@ Deno.serve(async (req) => {
 
       case "delete-page": {
         const pageId = id("pageId");
-        for (const bucket of ["wish-media", "payment-proofs"]) {
+        for (const bucket of ["wish-media", "wish-media-pending", "payment-proofs"]) {
           const { data } = await sb.storage.from(bucket).list(pageId, { limit: 1000 });
           if (data?.length) await sb.storage.from(bucket).remove(data.map((f) => `${pageId}/${f.name}`));
         }
@@ -149,19 +157,115 @@ Deno.serve(async (req) => {
         if (id("pageId")) query = query.eq("page_id", id("pageId"));
         const { data, error } = await query;
         if (error) return json({ error: error.message }, 500);
-        return json({ wishes: data });
+        try {
+          return json({ wishes: await Promise.all((data || []).map(addSignedWishMedia)) });
+        } catch (error) {
+          console.error("Could not sign pending admin wish media:", error);
+          return json({ error: "Could not load wish media." }, 500);
+        }
+      }
+
+      case "secure-pending-media": {
+        const { data: pending, error } = await sb.from("wishes")
+          .select("id, page_id, media_url")
+          .eq("is_approved", false)
+          .like("media_url", "%/storage/v1/object/public/wish-media/%")
+          .limit(20);
+        if (error) return json({ error: "Could not load legacy pending media." }, 500);
+
+        let migrated = 0;
+        let failed = 0;
+        for (const wish of pending || []) {
+          let moved: Awaited<ReturnType<typeof privatizeLegacyWishMedia>> | null = null;
+          try {
+            moved = await privatizeLegacyWishMedia(sb, wish.page_id, wish.media_url);
+            const { data, error: updateError } = await sb.from("wishes")
+              .update({ media_url: moved.pendingUrl })
+              .eq("id", wish.id)
+              .eq("is_approved", false)
+              .eq("media_url", wish.media_url)
+              .select("id");
+            if (updateError || !data?.length) {
+              const { error: cleanupError } = await sb.storage.from("wish-media-pending").remove([moved.pendingPath]);
+              if (cleanupError) console.error("Could not clean up migrated media after database update failed:", cleanupError);
+              if (updateError) {
+                console.error("Could not secure legacy pending media:", updateError);
+                failed++;
+              }
+              continue;
+            }
+            migrated++;
+            const { error: removeError } = await sb.storage.from("wish-media").remove([moved.publicPath]);
+            if (removeError) {
+              console.error("Could not remove legacy public wish media:", removeError);
+              failed++;
+            }
+          } catch (error) {
+            console.error("Could not migrate legacy pending wish media:", error);
+            if (moved) {
+              const { error: cleanupError } = await sb.storage.from("wish-media-pending").remove([moved.pendingPath]);
+              if (cleanupError) console.error("Could not clean up failed legacy media migration:", cleanupError);
+            }
+            failed++;
+          }
+        }
+        return json({ migrated, failed, hasMore: (pending || []).length === 20 });
       }
 
       case "approve-wish": {
-        const { error } = await sb.from("wishes").update({ is_approved: true }).eq("id", id("wishId"));
-        if (error) return json({ error: error.message }, 500);
+        const { data: wish, error: wishError } = await sb.from("wishes")
+          .select("id, page_id, media_url, is_approved").eq("id", id("wishId")).maybeSingle();
+        if (wishError) return json({ error: wishError.message }, 500);
+        if (!wish) return json({ error: "Wish not found." }, 404);
+        if (wish.is_approved) return json({ ok: true });
+
+        const patch: Record<string, unknown> = { is_approved: true };
+        let pendingPath: string | null = null;
+        let publicPath: string | null = null;
+        if (typeof wish.media_url === "string" && wish.media_url.startsWith("pending-wish-media:")) {
+          pendingPath = pendingWishMediaPath(wish.media_url, wish.page_id);
+          if (!pendingPath) return json({ error: "Invalid pending wish media." }, 500);
+          try {
+            const published = await publishPendingWishMedia(sb, wish.page_id, pendingPath);
+            patch.media_url = published.publicUrl;
+            publicPath = published.publicPath;
+          } catch (error) {
+            console.error("Could not publish approved admin wish media:", error);
+            return json({ error: "Could not publish this wish's media." }, 500);
+          }
+        }
+        const { data, error } = await sb.from("wishes").update(patch)
+          .eq("id", wish.id).eq("is_approved", false).select("id");
+        if (error || !data?.length) {
+          if (publicPath) {
+            const { error: cleanupError } = await sb.storage.from("wish-media").remove([publicPath]);
+            if (cleanupError) console.error("Could not clean up published media after admin approval failed:", cleanupError);
+          }
+          if (error) console.error("Could not approve wish from admin:", error);
+          return json({ error: "Could not approve this wish." }, error ? 500 : 409);
+        }
+        if (pendingPath) {
+          const { error: cleanupError } = await sb.storage.from("wish-media-pending").remove([pendingPath]);
+          if (cleanupError) console.error("Could not remove private media after admin approval:", cleanupError);
+        }
         return json({ ok: true });
       }
 
       case "delete-wish": {
-        const { data } = await sb.from("wishes").delete().eq("id", id("wishId")).select("media_url");
-        const path = storagePathFromUrl(data?.[0]?.media_url ?? null, "wish-media");
-        if (path) await sb.storage.from("wish-media").remove([path]);
+        const { data } = await sb.from("wishes").delete().eq("id", id("wishId")).select("media_url, page_id");
+        const mediaUrl = data?.[0]?.media_url ?? null;
+        const pendingPath = data?.[0]?.page_id
+          ? pendingWishMediaPath(mediaUrl, data[0].page_id)
+          : null;
+        const path = pendingPath || storagePathFromUrl(mediaUrl, "wish-media");
+        if (path) {
+          const bucket = pendingPath ? "wish-media-pending" : "wish-media";
+          const { error } = await sb.storage.from(bucket).remove([path]);
+          if (error) {
+            console.error("Could not remove wish media after admin deletion:", error);
+            return json({ error: "Wish was deleted, but its media could not be removed." }, 500);
+          }
+        }
         return json({ ok: true });
       }
 
