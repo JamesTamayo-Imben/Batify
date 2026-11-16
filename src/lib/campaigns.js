@@ -325,6 +325,34 @@ export function isCampaignActive(campaign, now = new Date()) {
     : today >= start || today <= end
 }
 
+export function isPriorityPreviewAvailable(campaign, now = new Date()) {
+  if (!campaign?.is_enabled || campaign.is_priority !== true || campaign.id === 'anniversary') return false
+  const startMonth = Number(campaign.start_month)
+  const startDay = Number(campaign.start_day)
+  if (!Number.isInteger(startMonth) || startMonth < 1 || startMonth > 12 ||
+    !Number.isInteger(startDay) || startDay < 1 || startDay > 31) return false
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+  }).formatToParts(now)
+  const year = Number(parts.find((part) => part.type === 'year')?.value)
+  const today = manilaTodayOrdinal(now)
+  let startDayOrdinal = null
+  for (let eventYear = year; eventYear <= year + 1; eventYear += 1) {
+    const date = `${eventYear}-${String(startMonth).padStart(2, '0')}-${String(startDay).padStart(2, '0')}`
+    const ordinal = dateOrdinal(date)
+    if (ordinal !== null && ordinal >= today) {
+      startDayOrdinal = ordinal
+      break
+    }
+  }
+  if (startDayOrdinal === null) return false
+
+  const daysUntilStart = startDayOrdinal - today
+  return daysUntilStart > 0 && daysUntilStart <= 14
+}
+
 export function millisecondsUntilManilaMidnight(now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Manila',

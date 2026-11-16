@@ -30,7 +30,7 @@ import { clearDraft, loadDraft, saveDraft } from '../lib/draft'
 import { hasOpened, markOpened, wishUnwrapped } from '../lib/opened'
 import { WishItem } from '../pages/PublicPage'
 import { DEFAULT_CUSTOM_COLOR, themeOf, themeStyleOf } from '../lib/themes'
-import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, isValidCampaignEventDate, millisecondsUntilManilaMidnight, OCCASIONS, priorityEventCountdown, priorityThemeFor, previewThemeForCampaign, upcomingCampaignDate } from '../lib/campaigns'
+import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, isPriorityPreviewAvailable, isValidCampaignEventDate, millisecondsUntilManilaMidnight, OCCASIONS, priorityEventCountdown, priorityThemeFor, previewThemeForCampaign, upcomingCampaignDate } from '../lib/campaigns'
 import { isPageExpired } from '../lib/pages'
 import { sb } from '../lib/supabase'
 
@@ -115,6 +115,18 @@ describe('seasonal campaigns', () => {
     expect(isCampaignActive(holiday, new Date('2026-12-02T00:00:00+08:00'))).toBe(true)
     expect(isCampaignActive(holiday, new Date('2027-01-01T23:59:00+08:00'))).toBe(true)
     expect(isCampaignActive(holiday, new Date('2027-01-02T00:00:00+08:00'))).toBe(false)
+  })
+
+  it('only offers priority theme previews during the two weeks before campaign opening', () => {
+    const christmas = {
+      id: 'christmas', is_enabled: true, is_priority: true,
+      start_month: 11, start_day: 25, end_month: 12, end_day: 25,
+    }
+    expect(isPriorityPreviewAvailable(christmas, new Date('2026-11-10T12:00:00+08:00'))).toBe(false)
+    expect(isPriorityPreviewAvailable(christmas, new Date('2026-11-11T12:00:00+08:00'))).toBe(true)
+    expect(isPriorityPreviewAvailable(christmas, new Date('2026-11-24T12:00:00+08:00'))).toBe(true)
+    expect(isPriorityPreviewAvailable(christmas, new Date('2026-11-25T12:00:00+08:00'))).toBe(false)
+    expect(isPriorityPreviewAvailable({ ...christmas, is_enabled: false }, new Date('2026-11-20T12:00:00+08:00'))).toBe(false)
   })
 
   it('defaults seasonal pages to the upcoming configured event date', () => {

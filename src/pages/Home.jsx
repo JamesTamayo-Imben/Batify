@@ -10,7 +10,7 @@ import Icon from '../components/Icon'
 import { SLOTS } from '../lib/ads'
 import { GIFTS } from '../lib/gifts'
 import { fireConfetti } from '../lib/confetti'
-import { CAMPAIGN_COLUMNS, isCampaignActive, millisecondsUntilManilaMidnight, occasionOf, previewThemeForCampaign, priorityEventCountdown } from '../lib/campaigns'
+import { CAMPAIGN_COLUMNS, isCampaignActive, isPriorityPreviewAvailable, millisecondsUntilManilaMidnight, occasionOf, previewThemeForCampaign, priorityEventCountdown } from '../lib/campaigns'
 import { FAQS } from '../lib/faqs'
 import { sb } from '../lib/supabase'
 import { useCampaignTheme } from '../components/CampaignThemeProvider'
@@ -25,7 +25,7 @@ export function CampaignCard({ campaign, isActive, previewThemeId, setPreviewThe
   const previewTheme = previewThemeForCampaign(campaign)
   const eventLabel = occasionOf(campaign.id)?.label || campaign.title
   const isPreviewing = previewThemeId === previewTheme
-  const canPreviewTheme = campaign.id === 'anniversary' || (campaign.is_priority === true && !isActive)
+  const canPreviewTheme = campaign.id === 'anniversary' || (!isActive && isPriorityPreviewAvailable(campaign))
 
   return (
     <article className="card flex h-full flex-col bg-white transition-transform hover:-translate-y-0.5">

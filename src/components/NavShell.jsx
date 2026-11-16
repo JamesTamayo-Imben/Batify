@@ -18,7 +18,7 @@ export default function NavShell() {
           <Logo className="text-2xl" />
           <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
             {ITEMS.slice(1).map((i) => (
-              <NavLink key={i.to} to={i.to} className={({ isActive }) => `whitespace-nowrap rounded-lg px-3 py-2 text-base font-bold ${isActive ? 'bg-sun' : 'hover:bg-ink/5'}`}>{i.desktopLabel || i.label}</NavLink>
+              <NavLink key={i.to} to={i.to} className={({ isActive }) => `whitespace-nowrap rounded-lg border-2 px-3 py-2 text-base font-bold transition-colors ${isActive ? 'border-ink bg-sun text-ink shadow-[0_2px_0_0_rgb(var(--ink))]' : 'border-transparent hover:bg-ink/5'}`}>{i.desktopLabel || i.label}</NavLink>
             ))}
           </nav>
         </div>
@@ -67,10 +67,10 @@ export default function NavShell() {
         <ul className="mx-auto grid max-w-md grid-cols-3">
           {ITEMS.map((i) => (
             <li key={i.to}>
-              <NavLink to={i.to} end={i.end} className={({ isActive }) => `flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-xs font-bold ${isActive ? 'text-accent' : 'text-muted'}`}>
+              <NavLink to={i.to} end={i.end} className={({ isActive }) => `mx-1 my-1 flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-xl border-2 text-xs font-bold transition-colors ${isActive ? 'border-ink bg-sun text-ink shadow-[0_2px_0_0_rgb(var(--ink))]' : 'border-transparent text-muted hover:bg-ink/5'}`}>
                 {({ isActive }) => (
                   <>
-                    <span className={`grid h-7 w-12 place-items-center rounded-full ${isActive ? 'bg-sun text-ink' : ''}`}><Icon name={i.icon} size={20} /></span>
+                    <span className="grid h-7 w-12 place-items-center rounded-full"><Icon name={i.icon} size={20} /></span>
                     {i.label}
                   </>
                 )}
