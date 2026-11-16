@@ -285,6 +285,15 @@ npm run build
 The deployable files are written to `dist/`. Deploy the contents of that
 directory, not the repository or the `dist` directory itself.
 
+### Cloudflare Workers
+
+The repository includes [`wrangler.jsonc`](wrangler.jsonc) for deploying the
+static Vite app with Wrangler. Build with `npm run build`, then deploy from the
+repository root with `npx wrangler deploy`. The config serves `dist/` and uses
+Workers' native single-page-app fallback for client-side routes. Do not add a
+catch-all `_redirects` rule to `/index.html`; Workers can reject it as an
+infinite loop.
+
 ### InfinityFree — `batify.site.je`
 
 InfinityFree hosts the static frontend only. Supabase (database, Storage, and
@@ -396,10 +405,10 @@ the crawler route is unavailable, link previews fall back to generic metadata.
   variables. [`vercel.json`](vercel.json) configures SPA routing and crawler
   link previews. Configure the server-only `SUPABASE_URL` and
   `SUPABASE_ANON_KEY` for the preview endpoint separately.
-- **Netlify / Cloudflare Pages:** run `npm run build`, publish `dist`, and use
-  the included [`public/_redirects`](public/_redirects) SPA rewrites. The rules
-  list Batify's client-side routes explicitly so Cloudflare Workers does not
-  interpret a catch-all rewrite to `/index.html` as an infinite loop.
+- **Netlify / Cloudflare Pages:** run `npm run build` and publish `dist`.
+  Configure an SPA fallback in the hosting platform if it is not enabled by
+  default. Cloudflare Pages and Cloudflare Workers are separate deployment
+  targets; use the Wrangler configuration above for Workers.
 
 Hosting providers may require different SPA rewrite rules. Verify direct
 navigation to nested routes after deployment.
