@@ -397,7 +397,9 @@ the crawler route is unavailable, link previews fall back to generic metadata.
   link previews. Configure the server-only `SUPABASE_URL` and
   `SUPABASE_ANON_KEY` for the preview endpoint separately.
 - **Netlify / Cloudflare Pages:** run `npm run build`, publish `dist`, and use
-  the included [`public/_redirects`](public/_redirects) SPA fallback.
+  the included [`public/_redirects`](public/_redirects) SPA rewrites. The rules
+  list Batify's client-side routes explicitly so Cloudflare Workers does not
+  interpret a catch-all rewrite to `/index.html` as an infinite loop.
 
 Hosting providers may require different SPA rewrite rules. Verify direct
 navigation to nested routes after deployment.
