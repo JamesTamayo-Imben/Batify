@@ -445,14 +445,19 @@ To enable ads, configure `VITE_ADSENSE_CLIENT` and the real
 `VITE_ADSENSE_SLOT_HOME`, `VITE_ADSENSE_SLOT_CREATE`, and
 `VITE_ADSENSE_SLOT_PUBLIC` ad-unit IDs in `.env.local` and in the production
 host's build environment, then rebuild and redeploy. Create the display units
-in AdSense; placeholder IDs will not serve ads. Ads are placed below the main
+in AdSense; placeholder IDs will not serve ads. Use the exact `VITE_` variable
+names: for example, `SLOT_HOME` will not configure the home placement; use
+`VITE_ADSENSE_SLOT_HOME`. Ads are placed below the main
 content on the home, create, and public page views, not inside the wish form or
 dashboard.
 
 AdSense must approve the site and may take time to serve ads after deployment.
 Ad blockers, browser privacy settings, an unapproved hostname, or a new/empty
-ad unit can also prevent ads from appearing. Local development is not a
-reliable way to verify ad delivery.
+ad unit can also prevent ads from appearing. A placement is labeled and given
+its surrounding spacing only after AdSense reports a filled ad; empty or
+unfilled units are hidden. Batify cannot choose whether the network serves
+text, image, or video creatives. Local development is not a reliable way to
+verify ad delivery.
 
 ## Development and tests
 

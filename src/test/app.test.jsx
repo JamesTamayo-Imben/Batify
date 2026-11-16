@@ -18,6 +18,7 @@ import ShareOptions from '../components/ShareOptions'
 import SeasonalOpener from '../components/SeasonalOpener'
 import Snowfall from '../components/Snowfall'
 import { LogoMark } from '../components/Logo'
+import AdSlot from '../components/AdSlot'
 import ThemePicker from '../components/ThemePicker'
 import CampaignSettings from '../components/CampaignEditor'
 import CampaignThemeProvider, { useCampaignTheme } from '../components/CampaignThemeProvider'
@@ -39,6 +40,40 @@ import { clearHistory, readHistory, recordHistory } from '../lib/history'
 import History from '../pages/History'
 
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllEnvs(); localStorage.clear(); sessionStorage.clear() })
+
+describe('AdSlot', () => {
+  it('only shows ad spacing and its label when AdSense reports a filled unit', async () => {
+    const originalAdsbygoogle = window.adsbygoogle
+    const push = vi.fn()
+    window.adsbygoogle = { push }
+    try {
+      const { container } = render(<AdSlot client="ca-pub-test" slot="123456" />)
+      await waitFor(() => expect(push).toHaveBeenCalledTimes(1))
+
+      const ad = container.querySelector('ins')
+      expect(ad.dataset.adClient).toBe('ca-pub-test')
+      expect(ad.dataset.adSlot).toBe('123456')
+      expect(screen.queryByText('Advertisement')).toBeNull()
+      expect(ad.parentElement.className).not.toContain('my-10')
+
+      act(() => ad.setAttribute('data-ad-status', 'unfilled'))
+      await waitFor(() => expect(ad.style.display).toBe('none'))
+      expect(screen.queryByLabelText('Advertisement')).toBeNull()
+
+      act(() => ad.setAttribute('data-ad-status', 'filled'))
+      expect(await screen.findByText('Advertisement')).toBeTruthy()
+      expect(ad.parentElement.className).toContain('my-10')
+    } finally {
+      if (originalAdsbygoogle === undefined) delete window.adsbygoogle
+      else window.adsbygoogle = originalAdsbygoogle
+    }
+  })
+
+  it('renders nothing when an ad-unit ID is not configured', () => {
+    const { container } = render(<AdSlot client="ca-pub-test" slot="" />)
+    expect(container.firstChild).toBeNull()
+  })
+})
 
 describe('themes', () => {
   it('keeps database ids and falls back safely', () => {
