@@ -116,6 +116,7 @@ export default function Home() {
   const { themeId, previewThemeId, setPreviewThemeId } = useCampaignTheme()
   const christmasTheme = themeId === 'christmas'
   const steps = christmasTheme ? CHRISTMAS_STEPS : STEPS
+  const createHref = christmasTheme ? '/create?campaign=christmas' : '/create'
   const [boxOpen, setBoxOpen] = useState(false)
   const [campaigns, setCampaigns] = useState([])
   const [campaignError, setCampaignError] = useState('')
@@ -151,7 +152,7 @@ export default function Home() {
                 : 'Write your birthday letter once and share one link. Friends open it like real mail, then send wishes, gifts and a little GCash back.'}
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link to="/create" className="btn-primary px-7 py-3.5 text-lg">{christmasTheme ? 'Write a Christmas letter' : 'Write my letter'}</Link>
+              <Link to={createHref} className="btn-primary px-7 py-3.5 text-lg">{christmasTheme ? 'Write a Christmas letter' : 'Write my letter'}</Link>
               <Link to="/edit" className="btn-ghost px-7 py-3.5 text-lg">{christmasTheme ? 'Open my page' : 'I already have a page'}</Link>
             </div>
             <p className="mt-4 font-semibold">Free. No account. Takes about three minutes.</p>
@@ -241,7 +242,7 @@ export default function Home() {
         <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
           <h2 id="faq-h" className="text-4xl sm:text-5xl">Questions</h2>
           <div className="mt-8 divide-y-2 divide-ink/15 border-y-2 border-ink/15">
-            {FAQS.map(([q, a]) => (
+            {FAQS.slice(0, 5).map(([q, a]) => (
               <details key={q} className="group py-1">
                 <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-4 text-lg font-bold">
                   {q}<Icon name="chevron" className="transition-transform group-open:rotate-180" />
@@ -257,7 +258,7 @@ export default function Home() {
       <section data-theme={themeId || 'confetti'} className="relative overflow-hidden border-t-2 border-ink bg-ground py-20 text-center">
         <div className="mx-auto max-w-2xl px-4">
           <h2 className="text-balance text-4xl sm:text-5xl">{christmasTheme ? 'Make this Christmas more memorable than a group chat' : 'Your birthday deserves more than a group chat'}</h2>
-          <Link to="/create" className="btn-primary mt-8 px-8 py-4 text-lg">{christmasTheme ? 'Write a Christmas letter' : 'Write my letter'}</Link>
+          <Link to={createHref} className="btn-primary mt-8 px-8 py-4 text-lg">{christmasTheme ? 'Write a Christmas letter' : 'Write my letter'}</Link>
         </div>
       </section>
 

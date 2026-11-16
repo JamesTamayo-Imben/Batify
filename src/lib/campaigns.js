@@ -262,6 +262,7 @@ export function isEventDateWithin30Days(value, now = new Date()) {
 }
 
 export function isValidCampaignEventDate(value, campaign, now = new Date()) {
+  if (campaign?.is_priority === true) return upcomingCampaignDate(campaign, now) === value
   if (campaign?.id === 'anniversary') return isEventDateNotPast(value, now)
   return isEventDateWithin30Days(value, now) || upcomingCampaignDate(campaign, now) === value
 }

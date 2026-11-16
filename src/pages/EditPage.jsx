@@ -447,7 +447,8 @@ function SettingsTab({ page, setData, run, call, busy, token, expired, dateLabel
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor="s-bday">{dateLabel}</label>
-          <input id="s-bday" type="date" className="field" required value={f.birthday_date} onChange={set('birthday_date')} />
+          <input id="s-bday" type="date" className="field" required value={f.birthday_date} onChange={set('birthday_date')} disabled={occasion?.priorityTheme != null} />
+          {occasion?.priorityTheme && <p className="hint">The date is fixed for this priority event.</p>}
         </div>
         <div>
           <label className="label" htmlFor="s-reveal">{occasion?.revealLabel || 'Reveal wishes at'}</label>

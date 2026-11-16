@@ -154,6 +154,17 @@ Deno.serve(async (req) => {
         }
         if ("birthday_date" in p) {
           if (!isValidDate(p.birthday_date)) return json({ error: "Invalid birthday date." }, 400);
+          if (page.campaign_type && p.birthday_date !== page.birthday_date) {
+            const { data: campaign, error: campaignError } = await sb.from("campaign_events")
+              .select("is_priority").eq("id", page.campaign_type).maybeSingle();
+            if (campaignError || !campaign) {
+              console.error("Could not verify campaign date settings:", campaignError || "Campaign not found.");
+              return json({ error: "Could not verify the event date. Please try again." }, 503);
+            }
+            if (campaign.is_priority) {
+              return json({ error: "The date is fixed for this priority event." }, 400);
+            }
+          }
           patch.birthday_date = p.birthday_date;
           if (page.campaign_type && page.opens_at) {
             patch.opens_at = new Date(`${p.birthday_date}T00:00:00+08:00`).toISOString();

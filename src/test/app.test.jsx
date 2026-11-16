@@ -144,6 +144,13 @@ describe('seasonal campaigns', () => {
     expect(isValidCampaignEventDate('2027-01-01', christmas, now)).toBe(false)
   })
 
+  it('requires the configured date for priority campaigns', () => {
+    const now = new Date('2026-11-16T12:00:00+08:00')
+    const christmas = { id: 'christmas', is_priority: true, end_month: 12, end_day: 25 }
+    expect(isValidCampaignEventDate('2026-12-25', christmas, now)).toBe(true)
+    expect(isValidCampaignEventDate('2026-12-20', christmas, now)).toBe(false)
+  })
+
   it('uses Christmas-specific writing prompts and greeting language', () => {
     const christmas = OCCASIONS.christmas
     expect(christmas.starters.length).toBeGreaterThanOrEqual(8)
@@ -303,6 +310,7 @@ describe('seasonal campaigns', () => {
       await waitFor(() => expect(from).toHaveBeenCalledWith('campaign_events'))
       await waitFor(() => expect(container.firstElementChild.getAttribute('data-theme')).toBe('christmas'))
       await waitFor(() => expect(audio.play).toHaveBeenCalledTimes(1))
+      expect(audio.loop).toBe(true)
 
       fireEvent.click(screen.getByRole('button', { name: 'Turn off Christmas theme' }))
       expect(container.firstElementChild.getAttribute('data-theme')).toBe('confetti')

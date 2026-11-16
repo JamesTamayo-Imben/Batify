@@ -133,11 +133,10 @@ export default function CampaignThemeProvider({ children }) {
 
     const track = new Audio('/audio/christmas-story.mp3')
     track.volume = 0.12
+    track.loop = true
     track.preload = 'none'
     audioRef.current = track
     let active = true
-    const onEnded = () => setMusicPlaying(false)
-    track.addEventListener('ended', onEnded)
     if (musicEnabledRef.current) {
       track.play().then(() => {
         if (active) setMusicPlaying(true)
@@ -146,7 +145,6 @@ export default function CampaignThemeProvider({ children }) {
     return () => {
       active = false
       track.pause()
-      track.removeEventListener('ended', onEnded)
       if (audioRef.current === track) audioRef.current = null
       setMusicPlaying(false)
     }

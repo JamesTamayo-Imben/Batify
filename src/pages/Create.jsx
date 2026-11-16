@@ -298,8 +298,10 @@ export default function Create() {
               <Field id="birthdayDate" label={dateLabel} error={errs.birthdayDate}
                 hint={campaign?.id === 'anniversary'
                     ? 'Your letter stays sealed until this date.'
-                    : campaign ? 'Your letter stays sealed until this date. Choose a date within the next 30 days or the configured event date.' : undefined}>
-                <input id="birthdayDate" type="date" className="field" value={f.birthdayDate} onChange={set('birthdayDate')} aria-invalid={!!errs.birthdayDate} aria-describedby={errs.birthdayDate ? 'birthdayDate-err' : undefined} />
+                    : campaign?.is_priority
+                      ? `This date is fixed for the ${campaign.title} event.`
+                      : campaign ? 'Your letter stays sealed until this date. Choose a date within the next 30 days or the configured event date.' : undefined}>
+                <input id="birthdayDate" type="date" className="field" value={f.birthdayDate} onChange={set('birthdayDate')} disabled={campaign?.is_priority === true} aria-invalid={!!errs.birthdayDate} aria-describedby={errs.birthdayDate ? 'birthdayDate-err' : undefined} />
               </Field>
             </>
           )}

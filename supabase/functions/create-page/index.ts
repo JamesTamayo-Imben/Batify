@@ -110,6 +110,7 @@ Deno.serve(async (req) => {
     }
     let campaign: {
       is_enabled: boolean;
+      is_priority: boolean;
       start_month: number;
       start_day: number;
       end_month: number;
@@ -135,11 +136,15 @@ Deno.serve(async (req) => {
       const daysUntilEvent = eventOrdinal - todayOrdinal;
       const matchesConfiguredEventDate = daysUntilEvent >= 0 &&
         eventOrdinal === upcomingCampaignDateOrdinal(campaign, todayOrdinal);
-      if (daysUntilEvent < 0 || (campaignType !== "anniversary" && daysUntilEvent > 30 && !matchesConfiguredEventDate)) {
+      if (daysUntilEvent < 0 ||
+        (campaign.is_priority && !matchesConfiguredEventDate) ||
+        (campaignType !== "anniversary" && daysUntilEvent > 30 && !matchesConfiguredEventDate)) {
         return json({
-          error: campaignType === "anniversary"
-            ? "Choose an anniversary date that has not passed."
-            : "Choose an event date within the next 30 days or the configured event date.",
+          error: campaign.is_priority
+            ? "Choose the configured date for this priority event."
+            : campaignType === "anniversary"
+              ? "Choose an anniversary date that has not passed."
+              : "Choose an event date within the next 30 days or the configured event date.",
         }, 400);
       }
     }
