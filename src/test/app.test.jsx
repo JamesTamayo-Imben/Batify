@@ -30,7 +30,7 @@ import { clearDraft, loadDraft, saveDraft } from '../lib/draft'
 import { hasOpened, markOpened, wishUnwrapped } from '../lib/opened'
 import { WishItem } from '../pages/PublicPage'
 import { DEFAULT_CUSTOM_COLOR, themeOf, themeStyleOf } from '../lib/themes'
-import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, isValidCampaignEventDate, millisecondsUntilManilaMidnight, OCCASIONS, priorityThemeFor, previewThemeForCampaign, upcomingCampaignDate } from '../lib/campaigns'
+import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, isValidCampaignEventDate, millisecondsUntilManilaMidnight, OCCASIONS, priorityEventCountdown, priorityThemeFor, previewThemeForCampaign, upcomingCampaignDate } from '../lib/campaigns'
 import { isPageExpired } from '../lib/pages'
 import { sb } from '../lib/supabase'
 
@@ -134,6 +134,21 @@ describe('seasonal campaigns', () => {
       { id: 'anniversary', end_month: 12, end_day: 31 },
       new Date('2026-06-20T12:00:00+08:00'),
     )).toBeNull()
+  })
+
+  it('counts down to the next priority event date and its end on event day', () => {
+    const christmas = {
+      id: 'christmas', title: 'Christmas', is_enabled: true, is_priority: true,
+      start_month: 11, start_day: 25, end_month: 12, end_day: 25,
+    }
+    expect(priorityEventCountdown([christmas], new Date('2026-11-16T12:00:00+08:00'))).toMatchObject({
+      date: '2026-12-25',
+      target: new Date('2026-12-25T00:00:00+08:00').getTime(),
+    })
+    expect(priorityEventCountdown([christmas], new Date('2026-12-25T12:00:00+08:00'))).toMatchObject({
+      date: '2026-12-25',
+      target: new Date('2026-12-26T00:00:00+08:00').getTime(),
+    })
   })
 
   it('accepts the configured event date even when it is more than 30 days away', () => {

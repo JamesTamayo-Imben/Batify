@@ -287,6 +287,32 @@ export function upcomingCampaignDate(campaign, now = new Date()) {
   return `${eventYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
+export function priorityEventCountdown(campaigns, now = new Date()) {
+  const priorityCampaigns = (campaigns || []).filter((campaign) =>
+    campaign?.is_enabled !== false &&
+    campaign?.is_priority === true &&
+    campaign.id !== 'anniversary' &&
+    occasionOf(campaign.id)?.priorityTheme,
+  )
+  const activeTheme = priorityThemeFor(priorityCampaigns, now)
+  const activeCampaign = priorityCampaigns.find((campaign) => campaign.id === activeTheme)
+  const candidates = activeCampaign ? [activeCampaign] : priorityCampaigns
+  const nowTime = now.getTime()
+  const upcoming = candidates
+    .map((campaign) => {
+      const date = upcomingCampaignDate(campaign, now)
+      if (!date) return null
+      let target = new Date(`${date}T00:00:00+08:00`).getTime()
+      const isActive = isCampaignActive(campaign, now)
+      const isEventDay = target <= nowTime && isActive
+      if (isEventDay) target += 24 * 60 * 60 * 1000
+      return target > nowTime ? { campaign, date, target, isActive, isEventDay } : null
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.target - b.target)
+  return upcoming[0] || null
+}
+
 export function isCampaignActive(campaign, now = new Date()) {
   if (!campaign?.is_enabled) return false
   const start = Number(campaign.start_month) * 100 + Number(campaign.start_day)

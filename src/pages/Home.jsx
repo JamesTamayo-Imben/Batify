@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AdSlot from '../components/AdSlot'
 import Banderitas from '../components/Banderitas'
@@ -10,11 +10,12 @@ import Icon from '../components/Icon'
 import { SLOTS } from '../lib/ads'
 import { GIFTS } from '../lib/gifts'
 import { fireConfetti } from '../lib/confetti'
-import { CAMPAIGN_COLUMNS, isCampaignActive, occasionOf, previewThemeForCampaign } from '../lib/campaigns'
+import { CAMPAIGN_COLUMNS, isCampaignActive, millisecondsUntilManilaMidnight, occasionOf, previewThemeForCampaign, priorityEventCountdown } from '../lib/campaigns'
 import { FAQS } from '../lib/faqs'
 import { sb } from '../lib/supabase'
 import { useCampaignTheme } from '../components/CampaignThemeProvider'
 import useTitle from '../lib/useTitle'
+import { formatDate } from '../lib/dates'
 import SeasonalOpener, { EventMark } from '../components/SeasonalOpener'
 
 const SAMPLE = 'Thank you for making my year loud, messy and happy. Leave me a wish.'
@@ -120,10 +121,30 @@ export default function Home() {
   const [boxOpen, setBoxOpen] = useState(false)
   const [campaigns, setCampaigns] = useState([])
   const [campaignError, setCampaignError] = useState('')
+  const [eventDateVersion, setEventDateVersion] = useState(0)
   const visibleCampaigns = christmasTheme
     ? campaigns.filter((campaign) => campaign.id === 'christmas' && isCampaignActive(campaign))
     : campaigns
+  const eventCountdown = useMemo(() => priorityEventCountdown(campaigns), [campaigns, eventDateVersion])
   useTitle(christmasTheme ? 'Batify: Christmas letters, greetings and pamasko' : 'Batify: birthday letters, wishes and gifts in one link')
+
+  useEffect(() => {
+    let timer
+    const refreshEventDate = () => {
+      clearTimeout(timer)
+      setEventDateVersion((version) => version + 1)
+      timer = setTimeout(refreshEventDate, millisecondsUntilManilaMidnight())
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refreshEventDate()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    refreshEventDate()
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [])
 
   useEffect(() => {
     let dead = false
@@ -219,24 +240,26 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-20 sm:px-6 lg:grid-cols-2" aria-labelledby="lock-h">
-        <div className="order-2 rounded-3xl border-2 border-ink bg-ground p-8 lg:order-1" data-theme={themeId || 'confetti'}>
-          <FlipCountdown target={Date.now() + 3 * 86400000 + 4 * 3600000 + 12 * 60000 + 30000} />
-        </div>
-        <div className="order-1 lg:order-2">
-          <h2 id="lock-h" className="text-4xl sm:text-5xl">{christmasTheme ? 'Save the Christmas greetings for the right moment' : 'Let the wishes pile up quietly'}</h2>
-          <p className="mt-4 max-w-md text-lg text-muted">
-            {christmasTheme
-              ? 'Choose when to reveal the greetings. Family can send messages ahead of time, and everyone sees a countdown. They stay private until the moment arrives.'
-              : 'Set a reveal time, like midnight on your birthday. Friends can send wishes early, and everyone sees a countdown. Nothing is readable until the clock runs out, not even by poking at the server.'}
-          </p>
-          <ul className="mt-6 space-y-3 font-semibold">
-            <li className="flex items-center gap-3"><Icon name="lock" className="text-accent" />Locked on our servers, not just on screen</li>
-            <li className="flex items-center gap-3"><Icon name="eye" className="text-accent" />{christmasTheme ? 'Review greetings before they appear' : 'Review wishes before they appear'}</li>
-            <li className="flex items-center gap-3"><Icon name="qr" className="text-accent" />A QR code for cards and cake toppers</li>
-          </ul>
-        </div>
-      </section>
+      {eventCountdown && (
+        <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-20 sm:px-6 lg:grid-cols-2" aria-labelledby="lock-h">
+          <div className="order-2 rounded-3xl border-2 border-ink bg-ground p-5 sm:p-8 lg:order-1" data-theme={themeId || 'confetti'}>
+            <p className="mb-4 text-center font-bold">{occasionOf(eventCountdown.campaign.id)?.label || eventCountdown.campaign.title} · {formatDate(eventCountdown.date)}</p>
+            <FlipCountdown target={eventCountdown.target} />
+          </div>
+          <div className="order-1 lg:order-2">
+            <h2 id="lock-h" className="text-4xl sm:text-5xl">
+              {`${occasionOf(eventCountdown.campaign.id)?.label || eventCountdown.campaign.title} ${
+                eventCountdown.isEventDay ? 'is here' : eventCountdown.isActive ? 'is on its way' : 'is next up'
+              }`}
+            </h2>
+            <p className="mt-4 max-w-md text-lg text-muted">
+              {eventCountdown.isEventDay
+                ? 'The countdown marks the end of event day at midnight Philippine time.'
+                : 'Counting down to the configured event date at midnight Philippine time.'}
+            </p>
+          </div>
+        </section>
+      )}
 
       <section className="border-t-2 border-ink bg-white" aria-labelledby="faq-h">
         <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6">

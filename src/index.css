@@ -22,6 +22,7 @@
     @apply inline-flex items-center justify-center gap-2 rounded-xl border-2 border-ink px-5 py-3 text-base font-bold
       transition-[transform,box-shadow,background-color] duration-150 disabled:cursor-not-allowed disabled:opacity-50;
     min-height: 48px; box-shadow: 0 3px 0 0 rgb(var(--ink)); font-family: 'Figtree Variable', system-ui, sans-serif;
+    max-width: 100%; min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: center; line-height: 1.25;
   }
   .btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 0 0 0 rgb(var(--ink)); }
   .btn-primary { @apply btn bg-accent text-white hover:bg-accent-deep; }
@@ -45,4 +46,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; transition-delay: 0s !important; scroll-behavior: auto !important; }
+}
+
+@media (max-width: 380px) {
+  .btn { padding-inline: .75rem; font-size: .9375rem; }
+  .btn-sm { padding-inline: .625rem; font-size: .8125rem; }
 }

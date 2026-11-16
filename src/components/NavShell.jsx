@@ -5,7 +5,7 @@ import InstallHint from './InstallHint'
 
 const ITEMS = [
   { to: '/', label: 'Home', icon: 'home', end: true },
-  { to: '/create', label: 'Write', icon: 'pencil' },
+  { to: '/create', label: 'Write', desktopLabel: 'Write a letter', icon: 'pencil' },
   { to: '/edit', label: 'My page', icon: 'key' },
 ]
 
@@ -18,9 +18,8 @@ export default function NavShell() {
           <Logo className="text-2xl" />
           <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
             {ITEMS.slice(1).map((i) => (
-              <NavLink key={i.to} to={i.to} className={({ isActive }) => `rounded-lg px-3 py-2 text-base font-bold ${isActive ? 'bg-sun' : 'hover:bg-ink/5'}`}>{i.label}</NavLink>
+              <NavLink key={i.to} to={i.to} className={({ isActive }) => `whitespace-nowrap rounded-lg px-3 py-2 text-base font-bold ${isActive ? 'bg-sun' : 'hover:bg-ink/5'}`}>{i.desktopLabel || i.label}</NavLink>
             ))}
-            {pathname !== '/create' && <Link to="/create" className="btn-primary btn-sm ml-3">Write a letter</Link>}
           </nav>
         </div>
       </header>

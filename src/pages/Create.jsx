@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import AdSlot from '../components/AdSlot'
 import Envelope3D, { useEnvelope } from '../components/Envelope3D'
 import Icon from '../components/Icon'
@@ -142,10 +142,15 @@ function Result({ result, f, campaign }) {
 /* ------------------------------------------------------------------ the wizard */
 export default function Create() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const campaignId = searchParams.get('campaign')
+  const occasionType = searchParams.get('occasion')
   const [campaign, setCampaign] = useState(null)
   const [campaignStatus, setCampaignStatus] = useState(campaignId ? 'loading' : 'idle')
   const [campaignError, setCampaignError] = useState('')
+  const [occasionOptions, setOccasionOptions] = useState([])
+  const [occasionStatus, setOccasionStatus] = useState('loading')
+  const [occasionError, setOccasionError] = useState('')
   const [f, setF] = useState(() => ({ ...EMPTY, ...(loadDraft() || {}) }))
   const [wiz, setWiz] = useState(0)
   const [errs, setErrs] = useState({})
@@ -157,7 +162,35 @@ export default function Create() {
   const letterRef = useRef(null)
   const heading = useRef(null)
   const env = useEnvelope({ max: 3 })
-  useTitle(campaign?.title ? `Create a ${campaign.title} link - Batify` : 'Write your birthday letter - Batify')
+  useTitle(campaign?.title
+    ? `Create a ${campaign.title} link - Batify`
+    : !campaignId && !occasionType
+      ? 'Choose a celebration - Batify'
+      : 'Write your letter - Batify')
+
+  useEffect(() => {
+    if (campaignId || occasionType) return undefined
+    let dead = false
+    sb.from('campaign_events').select(CAMPAIGN_COLUMNS).eq('is_enabled', true)
+      .then(({ data, error: loadError }) => {
+        if (dead) return
+        if (loadError) {
+          console.error('Could not load celebration types:', loadError)
+          setOccasionError('Special celebrations could not be loaded. You can still create a birthday page.')
+          setOccasionStatus('error')
+          return
+        }
+        setOccasionOptions(data || [])
+        setOccasionStatus('ready')
+      })
+      .catch((loadError) => {
+        if (dead) return
+        console.error('Could not load celebration types:', loadError)
+        setOccasionError('Special celebrations could not be loaded. You can still create a birthday page.')
+        setOccasionStatus('error')
+      })
+    return () => { dead = true }
+  }, [campaignId, occasionType])
 
   useEffect(() => {
     if (!campaignId) {
@@ -244,7 +277,7 @@ export default function Create() {
     } finally { setBusy(false) }
   }
 
-  if (campaignStatus === 'loading') {
+  if (campaignStatus === 'loading' || (campaignId && !campaign)) {
     return <div className="page-wrap text-center" role="status">Loading seasonal campaign…</div>
   }
   if (campaignStatus === 'error') {
@@ -257,6 +290,32 @@ export default function Create() {
     )
   }
   if (result) return <Result result={result} f={f} campaign={occasionOf(campaign?.id)} />
+  if (!campaignId && !occasionType) {
+    const availableOccasions = occasionOptions.filter((event) =>
+      event.id === 'anniversary' || (event.is_priority && isCampaignActive(event)),
+    )
+    return (
+      <section className="page-wrap max-w-4xl" aria-labelledby="occasion-heading">
+        <h1 id="occasion-heading" className="text-4xl sm:text-5xl">What are we celebrating?</h1>
+        <p className="mt-3 max-w-2xl text-lg text-muted">Pick the occasion and we’ll set up the right kind of letter.</p>
+        {occasionStatus === 'loading' && <p className="mt-5" role="status">Loading celebrations…</p>}
+        {occasionError && <p className="mt-5 text-sm font-semibold text-flag" role="status">{occasionError}</p>}
+        <div className="mt-7 grid gap-4 sm:grid-cols-2">
+          <button type="button" className="card flex min-h-32 w-full flex-col items-start text-left transition-colors hover:bg-sun/30" onClick={() => navigate('/create?occasion=birthday')}>
+            <span className="text-2xl font-display font-extrabold">Birthday</span>
+            <span className="mt-2 text-muted">A personal letter and wishes for their big day.</span>
+          </button>
+          {availableOccasions.map((event) => (
+            <button key={event.id} type="button" className="card flex min-h-32 w-full flex-col items-start text-left transition-colors hover:bg-sun/30" onClick={() => navigate(`/create?campaign=${encodeURIComponent(event.id)}`)}>
+              <span className="text-2xl font-display font-extrabold">{event.title}</span>
+              <span className="mt-2 text-muted">{event.description}</span>
+            </button>
+          ))}
+        </div>
+        <Link to="/" className="btn-ghost mt-7">Back to Batify</Link>
+      </section>
+    )
+  }
 
   const first = f.ownerName.trim().split(/\s+/)[0]
   const occasion = occasionOf(campaign?.id)
