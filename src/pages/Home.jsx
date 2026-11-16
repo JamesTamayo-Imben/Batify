@@ -51,7 +51,15 @@ export function CampaignCard({ campaign, isActive, previewThemeId, setPreviewThe
             type="button"
             className="btn-sun w-full"
             aria-pressed={isActiveTheme}
-            onClick={() => setSystemThemeEnabled(!isActiveTheme)}
+            onClick={() => {
+              if (isPreviewing) {
+                setPreviewThemeId(null)
+              } else if (themeId === previewTheme && !previewThemeId) {
+                setSystemThemeEnabled(false)
+              } else {
+                setPreviewThemeId(previewTheme)
+              }
+            }}
           >
             <EventMark theme={previewTheme} className="event-mark" />
             {isActiveTheme ? `Turn off ${eventLabel} theme` : `Turn on ${eventLabel} theme`}
@@ -138,9 +146,7 @@ export default function Home() {
   const [campaigns, setCampaigns] = useState([])
   const [campaignError, setCampaignError] = useState('')
   const [eventDateVersion, setEventDateVersion] = useState(0)
-  const visibleCampaigns = christmasTheme
-    ? campaigns.filter((campaign) => campaign.id === 'christmas' && isCampaignActive(campaign))
-    : campaigns
+  const visibleCampaigns = campaigns
   const eventCountdown = useMemo(() => priorityEventCountdown(campaigns), [campaigns, eventDateVersion])
   useTitle(christmasTheme ? 'Batify: Christmas letters, greetings and pamasko' : 'Batify: birthday letters, wishes and gifts in one link')
 
@@ -204,7 +210,7 @@ export default function Home() {
             <h2 id="campaigns-h" className="text-3xl sm:text-4xl">{christmasTheme ? 'Share a little Christmas joy' : 'Make a special moment shareable'}</h2>
             <p className="mt-2 text-muted">{christmasTheme ? 'Create a Christmas letter link for family and friends to send greetings and pamasko.' : 'Create a link for someone you love and let their people send wishes and gifts.'}</p>
             {campaignError && <p role="status" className="mt-3 text-sm font-semibold text-flag">{campaignError}</p>}
-            <div className={`mt-5 grid gap-3 ${visibleCampaigns.length === 1 ? 'sm:max-w-sm sm:grid-cols-1' : visibleCampaigns.length === 2 ? 'sm:mx-auto sm:max-w-4xl sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+            <div className={`mt-5 grid gap-3 ${visibleCampaigns.length === 1 ? 'sm:max-w-sm' : visibleCampaigns.length === 2 ? 'sm:mx-auto sm:max-w-4xl' : ''} sm:grid-cols-2 lg:grid-cols-3`}>
               {visibleCampaigns.map((campaign) => (
                 <CampaignCard
                   key={campaign.id}

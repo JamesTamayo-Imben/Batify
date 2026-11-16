@@ -231,23 +231,44 @@ describe('seasonal campaigns', () => {
     expect(screen.queryByRole('button', { name: `Preview ${label} theme` })).toBeNull()
   })
 
-  it('lets visitors turn an active priority event theme on and off', () => {
+  it('lets visitors select an active event theme even when another event theme is active', () => {
     const setSystemThemeEnabled = vi.fn()
+    const setPreviewThemeId = vi.fn()
     render(
       <MemoryRouter>
         <CampaignCard
-          campaign={{ id: 'christmas', title: 'Christmas Pamasko', description: 'Share a link', is_priority: true }}
+          campaign={{ id: 'halloween', title: 'Halloween', description: 'Share a link', is_priority: true }}
           isActive
           previewThemeId={null}
-          setPreviewThemeId={vi.fn()}
-          themeId={null}
+          setPreviewThemeId={setPreviewThemeId}
+          themeId="christmas"
           setSystemThemeEnabled={setSystemThemeEnabled}
         />
       </MemoryRouter>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Turn on Christmas theme' }))
-    expect(setSystemThemeEnabled).toHaveBeenCalledWith(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Turn on Halloween theme' }))
+    expect(setPreviewThemeId).toHaveBeenCalledWith('halloween')
+    expect(setSystemThemeEnabled).not.toHaveBeenCalled()
+  })
+
+  it('turns off the system theme when its active event card is toggled off', () => {
+    const setSystemThemeEnabled = vi.fn()
+    render(
+      <MemoryRouter>
+        <CampaignCard
+          campaign={{ id: 'christmas', title: 'Christmas', description: 'Share a link', is_priority: true }}
+          isActive
+          previewThemeId={null}
+          setPreviewThemeId={vi.fn()}
+          themeId="christmas"
+          setSystemThemeEnabled={setSystemThemeEnabled}
+        />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Turn off Christmas theme' }))
+    expect(setSystemThemeEnabled).toHaveBeenCalledWith(false)
   })
 
   it('offers a preview for a priority event outside its active window', () => {
@@ -637,15 +658,21 @@ describe('public information pages', () => {
 })
 
 describe('sharing options', () => {
-  it('offers distinct app destinations and a separate copy-link action', () => {
+  it('lets visitors edit the shared message and opens app-specific post drafts', () => {
     render(<ShareOptions title="A Batify letter" text="Send a greeting" url="https://batify.test/p/letter" />)
-    fireEvent.click(screen.getByText('Share'))
+    fireEvent.click(screen.getByText('Share message & post'))
 
-    expect(screen.getByRole('link', { name: 'WhatsApp' }).getAttribute('href')).toContain('wa.me')
+    const message = screen.getByLabelText('Message to share or post')
+    expect(message.value).toBe('Send a greeting')
+    fireEvent.change(message, { target: { value: 'Join me in celebrating!' } })
+
+    expect(decodeURIComponent(screen.getByRole('link', { name: 'WhatsApp' }).getAttribute('href'))).toContain('Join me in celebrating!')
     expect(screen.getByRole('link', { name: 'Telegram' }).getAttribute('href')).toContain('t.me/share/url')
-    expect(screen.getByRole('link', { name: 'Facebook' }).getAttribute('href')).toContain('facebook.com/sharer')
+    expect(decodeURIComponent(screen.getByRole('link', { name: 'Facebook' }).getAttribute('href'))).toContain('quote=Join me in celebrating!')
+    expect(screen.getByRole('link', { name: 'X' }).getAttribute('href')).toContain('twitter.com/intent/tweet')
     expect(screen.getByRole('link', { name: 'Email' }).getAttribute('href')).toContain('mailto:')
-    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Copy message & link' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Copy link only' })).toBeTruthy()
   })
 })
 
