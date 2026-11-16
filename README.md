@@ -42,7 +42,8 @@
 
 - A guided, four-step birthday letter creator with a live preview and autosaved
   draft, seven curated palettes, and a custom color picker that derives a
-  matching palette.
+  matching palette. **Dahon** is Batify's natural theme, with fresh green and
+  forest tones.
 - A sealed-envelope opening experience and responsive birthday page.
 - Birthday wishes presented as gift boxes, with individual and bulk
   wrap/unwrap controls.
@@ -63,9 +64,9 @@
   The Home hero and seasonal letters use event illustrations as their opening
   controls, with optional motion-sensor shake support where available. The
   Home page offers a browser-local Anniversary preview year-round and priority
-  previews when their configured campaign is not already active. Active
-  priority themes do not show a redundant preview, and previews do not change
-  event scheduling. Christmas uses falling branched snowflakes, a locally
+  previews when their configured campaign is not already active. Active-event
+  cards let visitors switch to that event's theme on their device; previews do
+  not change event scheduling. Christmas uses falling branched snowflakes, a locally
   served audio track at 12% volume with a play/pause control, and Christmas
   Day as the default letter date. Browser autoplay restrictions may require
   visitors to start the audio manually.
@@ -110,7 +111,8 @@ Edit `.env.local` and provide the values described in
 1. In the Supabase SQL Editor, run or re-run [`schema.sql`](schema.sql). It
    creates and updates the application tables, row-level security policies,
    column grants, storage buckets, supporting functions, and seasonal campaign
-   configuration.
+   configuration. It also creates the private `wish-media-pending` bucket for
+   gift uploads awaiting moderation.
 2. In the Supabase project, allow the app's production hostname in the settings
    required by your project and ensure the required tables are available through
    the API.
@@ -264,12 +266,19 @@ navigation to nested routes after deployment.
 - Wish reads are protected by database policies as well as the UI. Scheduled
   wishes remain hidden until their reveal time.
 - Payment proof images are stored in a private bucket and shown to the owner
-  through short-lived signed URLs. Public gift media and GCash QR images use the
-  public media bucket.
+  through short-lived signed URLs. Unapproved gift media is stored in the
+  private `wish-media-pending` bucket and shown to page owners and admins through
+  short-lived signed URLs. Approved gift media and GCash QR images use the
+  public `wish-media` bucket; anonymous object listing is disabled.
 - Uploads are checked by file signature, and SVG uploads are not accepted.
 - The super-admin interface is at `/admin` and requires the server-configured
   `ADMIN_SECRET`. Its overview links to page, wish, report, and contribution
   queues; administrators can filter pending wishes and payments.
+- After deploying the private pending-media flow, use **Admin → Wishes →
+  Secure older uploads** to migrate existing unapproved gift media out of the
+  public bucket. The action processes up to 20 uploads per run; repeat it until
+  no more batches remain. Older uploads remain publicly accessible until
+  migrated.
 
 Review the schema, Edge Functions, and hosting configuration before using the
 app with real user data.
