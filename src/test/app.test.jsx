@@ -567,7 +567,7 @@ describe('seasonal opening', () => {
 describe('public information pages', () => {
   it('explains the virtual-appreciation idea without requiring a real gift', () => {
     render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><AboutDeveloper /></MemoryRouter>)
-    expect(screen.getByRole('heading', { name: 'Why I made Batify.' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'A small idea, made to be shared.' })).toBeTruthy()
     expect(screen.getByText(/There is no spending required/)).toBeTruthy()
     expect(screen.getByText('— Jimz, developer of Batify')).toBeTruthy()
   })

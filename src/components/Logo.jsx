@@ -7,7 +7,7 @@ export function LogoMark({ size = 32 }) {
       <path d="M4.5 10 20 21.5 35.5 10" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       <circle cx="16.5" cy="24" r="1.5" fill="#F7C531" />
       <circle cx="23.5" cy="24" r="1.5" fill="#F7C531" />
-      <path className="logo-smile" d="M15.5 27c2 2.5 7 2.5 9 0" fill="none" stroke="#F7C531" strokeWidth="2.2" strokeLinecap="round" />
+      <path className="logo-smile" d="M13 26.5c2.6 4.5 11.4 4.5 14 0" fill="none" stroke="#F7C531" strokeWidth="2.6" strokeLinecap="round" />
     </svg>
   )
 }

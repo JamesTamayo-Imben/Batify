@@ -4,16 +4,16 @@ import useTitle from '../lib/useTitle'
 
 const STEPS = [
   {
-    title: 'Write your page',
-    description: 'Add your name, date, and letter. Choose an envelope theme, then decide whether wishes should stay sealed until a time you choose.',
+    title: 'Make it yours',
+    description: 'Choose a birthday, anniversary, or available seasonal occasion. Add your name and letter, pick an envelope theme, and set a reveal time if you want to open every wish together.',
   },
   {
-    title: 'Share one link',
-    description: 'Send the public page link to your group chat or share its QR code on a printed card. Keep the private edit link to yourself.',
+    title: 'Share the good news',
+    description: 'Send friends the public page link or download its QR code for a card, cake topper, or gift box. Your private edit link is just for you, so tuck it somewhere safe.',
   },
   {
-    title: 'Open the wishes',
-    description: 'Friends choose a gift theme and leave a message. Review wishes or let them appear automatically, then unwrap them one at a time or together.',
+    title: 'Unwrap the wishes',
+    description: 'Friends leave a note and choose a virtual gift theme. Review wishes before they appear or let them arrive automatically, then unwrap them one by one or all at once.',
   },
 ]
 
@@ -27,7 +27,7 @@ export default function HowItWorks() {
           <div>
             <h1 className="max-w-3xl text-5xl sm:text-6xl">Write once. Share the moment.</h1>
             <p className="mt-6 max-w-2xl text-xl leading-relaxed text-white/90">
-              Batify turns a birthday letter into one page your friends can visit to send their wishes.
+              Turn a birthday or special-occasion letter into one cheerful page your people can visit to send their wishes.
             </p>
           </div>
           <Link to="/create" className="btn-sun w-fit">Create your page</Link>
@@ -36,7 +36,7 @@ export default function HowItWorks() {
 
       <section className="px-4 py-16 sm:px-6 sm:py-20" aria-labelledby="steps-heading">
         <div className="mx-auto max-w-6xl">
-          <h2 id="steps-heading" className="max-w-2xl text-4xl sm:text-5xl">Three steps from letter to inbox.</h2>
+          <h2 id="steps-heading" className="max-w-2xl text-4xl sm:text-5xl">Three little steps. One lovely surprise.</h2>
           <ol className="mt-10 grid gap-8 md:grid-cols-3">
             {STEPS.map((step, index) => (
               <li key={step.title} className="border-t-2 border-ink pt-5">
@@ -59,20 +59,20 @@ export default function HowItWorks() {
           </div>
           <div className="divide-y-2 divide-ink/15 border-y-2 border-ink/15">
             <article className="py-5">
-              <h3 className="flex items-center gap-2 text-xl"><Icon name="lock" size={20} />Reveal wishes when you choose</h3>
-              <p className="mt-2 text-muted">Set a reveal time to keep wishes hidden until then. You can also review wishes before they appear.</p>
+              <h3 className="flex items-center gap-2 text-xl"><Icon name="lock" size={20} />Set the moment</h3>
+              <p className="mt-2 text-muted">Choose when wishes should appear, and decide whether to approve them first. The countdown makes the wait part of the fun.</p>
             </article>
             <article className="py-5">
-              <h3 className="flex items-center gap-2 text-xl"><Icon name="gift" size={20} />Gift themes are part of the wish</h3>
-              <p className="mt-2 text-muted">Friends can choose flowers, a teddy bear, chocolate, cake, coffee, a book, balloons, or a photo/video. Batify does not arrange physical gift delivery.</p>
+              <h3 className="flex items-center gap-2 text-xl"><Icon name="gift" size={20} />Virtual gifts, real thought</h3>
+              <p className="mt-2 text-muted">Friends can pick flowers, a teddy bear, chocolate, cake, coffee, a book, balloons, or a photo/video to go with their note. They are playful tokens of appreciation, not physical deliveries.</p>
             </article>
             <article className="py-5">
               <h3 className="flex items-center gap-2 text-xl"><Icon name="key" size={20} />Your edit link is private</h3>
-              <p className="mt-2 text-muted">Anyone with the edit link can manage your page. Share the public page link with friends instead.</p>
+              <p className="mt-2 text-muted">Anyone with the edit link can manage your page. Share the public page link with friends instead, and save the edit link somewhere safe.</p>
             </article>
             <article className="py-5">
-              <h3 className="text-xl">Optional GCash details</h3>
-              <p className="mt-2 text-muted">Friends send money directly in their GCash app and can upload proof. Batify does not handle the payment.</p>
+              <h3 className="text-xl">A little extra, if you want</h3>
+              <p className="mt-2 text-muted">You can add GCash details, but it is completely optional. Friends send money in their own GCash app; Batify never handles the payment.</p>
             </article>
           </div>
         </div>

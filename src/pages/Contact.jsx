@@ -12,26 +12,27 @@ export default function Contact() {
     <div>
       <section className="border-b-2 border-ink bg-ground px-4 py-16 sm:px-6 sm:py-24">
         <div className="mx-auto max-w-6xl">
-          <h1 className="max-w-3xl text-5xl sm:text-6xl">Have a question? Say hello.</h1>
+          <h1 className="max-w-3xl text-5xl sm:text-6xl">Questions, ideas, or just a hello?</h1>
           <p className="mt-6 max-w-2xl text-xl leading-relaxed">
-            Questions, ideas, or feedback about Batify are welcome. Send Jimz a note and it will open in your email app.
+            Whether you need a hand, spotted something we could improve, or have an idea to share, Jimz would be glad to hear from you.
           </p>
         </div>
       </section>
 
       <section className="px-4 py-16 sm:px-6 sm:py-20">
         <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-[0.8fr_1.2fr]">
-          <h2 className="max-w-md text-4xl sm:text-5xl">The best way to reach me.</h2>
+          <h2 className="max-w-md text-4xl sm:text-5xl">Drop a note in the inbox.</h2>
           <div className="max-w-2xl space-y-5">
             <a href={MAILTO} className="btn-primary w-fit">
               <Icon name="mail" size={20} />
               Email Jimz
             </a>
             <p className="text-lg text-muted">
-              Or write directly to <a className="link break-all" href={MAILTO}>{EMAIL}</a>.
+              Prefer to copy the address? Reach Jimz at <a className="link break-all" href={MAILTO}>{EMAIL}</a>.
             </p>
+            <p className="text-muted">The button opens a new message in your email app, so you can review it before sending.</p>
             <p className="text-muted">
-              Looking for a quick answer? The <Link to="/faq" className="link">questions page</Link> may help.
+              Looking for a quick answer first? Browse the <Link to="/faq" className="link">frequently asked questions</Link>.
             </p>
           </div>
         </div>
@@ -40,8 +41,8 @@ export default function Contact() {
       <section className="border-y-2 border-ink bg-white px-4 py-14 sm:px-6 sm:py-16">
         <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
           <div>
-            <h2 className="text-3xl sm:text-4xl">A note can be a gift.</h2>
-            <p className="mt-3 max-w-xl text-muted">Learn why Batify was made for fun, connection, and virtual appreciation.</p>
+            <h2 className="text-3xl sm:text-4xl">Every good idea starts with a note.</h2>
+            <p className="mt-3 max-w-xl text-muted">Get to know the story and the person behind Batify.</p>
           </div>
           <Link to="/about-developer" className="btn-ghost">Read the developer’s story</Link>
         </div>

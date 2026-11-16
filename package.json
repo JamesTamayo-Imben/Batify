@@ -2,6 +2,7 @@
   "name": "batify",
   "private": true,
   "version": "1.0.0",
+  "author": "Jimz",
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {

@@ -10,30 +10,30 @@ export default function AboutDeveloper() {
       <section className="border-b-2 border-ink bg-ground px-4 py-16 sm:px-6 sm:py-24">
         <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-[1.2fr_0.8fr] md:items-end">
           <div>
-            <h1 className="max-w-3xl text-5xl sm:text-6xl">A little appreciation can make the day.</h1>
+            <h1 className="max-w-3xl text-5xl sm:text-6xl">Meet Jimz, the maker of Batify.</h1>
             <p className="mt-6 max-w-2xl text-xl leading-relaxed">
-              With Christmas coming up, I wanted to make something fun even when there wasn’t a real gift or money to give.
+              I wanted to make a celebration feel special, even when there isn’t a wrapped present or extra money to give.
             </p>
           </div>
           <div className="flex items-center gap-4 border-t-2 border-ink pt-5 md:justify-end md:border-l-2 md:border-t-0 md:pl-8 md:pt-0">
             <LogoMark size={52} />
-            <p className="max-w-xs font-display text-2xl font-bold">A small way to show someone you care.</p>
+            <p className="max-w-xs font-display text-2xl font-bold">A little note can go a long way.</p>
           </div>
         </div>
       </section>
 
       <section className="px-4 py-16 sm:px-6 sm:py-20" aria-labelledby="origin-heading">
         <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-[0.8fr_1.2fr]">
-          <h2 id="origin-heading" className="max-w-md text-4xl sm:text-5xl">Why I made Batify.</h2>
+          <h2 id="origin-heading" className="max-w-md text-4xl sm:text-5xl">A small idea, made to be shared.</h2>
           <div className="max-w-2xl space-y-5 text-lg leading-relaxed text-muted">
             <p>
-              The idea began as Christmas got closer. I wanted a way to make the season feel lively and bring people together, even if nobody had a wrapped present or extra money to share.
+              The idea came to me as Christmas was getting closer. I wanted a way to make the season feel lively and bring people together, even if nobody had a wrapped present or extra money to share.
             </p>
             <p>
-              A thoughtful message can be its own little gift. So I imagined a place where someone could write a letter, share one link, and let friends send kind words with virtual gifts that make opening each wish part of the fun.
+              A thoughtful message can be its own little gift. I imagined a place where someone could write a letter, share one link, and let friends send kind words with virtual gifts that make opening each wish part of the fun.
             </p>
             <p>
-              That became Batify: a playful way to celebrate and remind someone they matter. There is no spending required. The appreciation is the real gift.
+              That idea became Batify: a playful way to celebrate and remind someone they matter. There is no spending required. The appreciation is the real gift.
             </p>
             <p className="font-bold text-ink">— Jimz, developer of Batify</p>
           </div>
