@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import AdSlot from '../components/AdSlot'
 import Envelope3D, { useEnvelope } from '../components/Envelope3D'
 import Icon from '../components/Icon'
+import ShareOptions from '../components/ShareOptions'
 import Turnstile from '../components/Turnstile'
 import { postJSON } from '../lib/ajax'
 import { SLOTS } from '../lib/ads'
@@ -12,7 +13,7 @@ import { clearDraft, loadDraft, saveDraft } from '../lib/draft'
 import { CAMPAIGN_COLUMNS, isCampaignActive, isValidCampaignEventDate, occasionOf, upcomingCampaignDate } from '../lib/campaigns'
 import { error as buzzError, success, tap } from '../lib/haptics'
 import { rememberPage } from '../lib/mypages'
-import { copyText, shareLink } from '../lib/share'
+import { copyText } from '../lib/share'
 import { qrPng, qrSvg } from '../lib/qr'
 import { sb } from '../lib/supabase'
 import ThemePicker from '../components/ThemePicker'
@@ -60,12 +61,11 @@ function LinkCard({ title, url, tone, warning, hint, actions }) {
   )
 }
 
-function Result({ result, f, campaign }) {
+function Result({ result, f, campaign, onCreateAnother }) {
   const publicUrl = `${location.origin}/p/${result.slug}`
   const editUrl = `${location.origin}/edit/${result.editToken}`
   const [sealed, setSealed] = useState(false)
   const [svg, setSvg] = useState('')
-  const [shareMsg, setShareMsg] = useState('')
   const env = useEnvelope({ max: 3, initial: 3, onStep: (n) => { if (n === 0) { setSealed(true); fireConfetti({ x: 0.5, y: 0.45, count: 160 }) } } })
   const eventTheme = campaign?.priorityTheme
 
@@ -77,7 +77,6 @@ function Result({ result, f, campaign }) {
     a.href = await qrPng(publicUrl); a.download = `batify-${result.slug}.png`; a.click()
   }
   const shareText = campaign?.shareText || 'Send me a birthday wish'
-  const wa = `https://wa.me/?text=${encodeURIComponent(`${shareText}: ${publicUrl}`)}`
   const mail = `mailto:?subject=${encodeURIComponent('My Batify edit link')}&body=${encodeURIComponent(`Keep this private. It is the only way to manage my Batify page:\n${editUrl}`)}`
 
   return (
@@ -111,12 +110,10 @@ function Result({ result, f, campaign }) {
         <LinkCard title="Public link" url={publicUrl}
           hint={campaign ? `Your letter opens automatically on ${formatDate(f.birthdayDate)} at midnight Philippine time.` : undefined} actions={
           <>
-            <button className="btn-ghost" onClick={async () => { const r = await shareLink({ title: f.title, text: shareText, url: publicUrl }); if (r === 'copied') setShareMsg('Link copied to clipboard.') }}><Icon name="share" size={18} />Share</button>
-            <a className="btn-ghost" href={wa} target="_blank" rel="noreferrer noopener"><Icon name="chat" size={18} />WhatsApp</a>
+            <ShareOptions title={f.title} text={shareText} url={publicUrl} />
             <Link to={`/p/${result.slug}`} className="btn-ghost">Preview page</Link>
           </>
         } />
-        {shareMsg && <p role="status" className="text-sm text-muted">{shareMsg}</p>}
 
         <LinkCard tone="warn" title="Edit link, only for you" warning="This is your only way back in. It cannot be recovered." url={editUrl} actions={
           <>
@@ -133,6 +130,9 @@ function Result({ result, f, campaign }) {
             <button className="btn-ghost mt-3" onClick={downloadQr}><Icon name="download" size={18} />Download QR</button>
           </div>
         </div>
+      </div>
+      <div className="text-center">
+        <button type="button" className="btn-ghost" onClick={onCreateAnother}>Create another letter</button>
       </div>
       <AdSlot slot={SLOTS.create} />
     </div>
@@ -158,6 +158,7 @@ export default function Create() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)
+  const [resultForm, setResultForm] = useState(null)
   const ts = useRef(null)
   const letterRef = useRef(null)
   const heading = useRef(null)
@@ -271,7 +272,12 @@ export default function Create() {
         campaignType: campaign?.id,
       })
       rememberPage({ slug: data.slug, token: data.editToken, title: f.title.trim() })
-      clearDraft(); success(); setResult(data); window.scrollTo({ top: 0 })
+      clearDraft()
+      setResultForm({ ...f })
+      setResult(data)
+      setF({ ...EMPTY, ownerName: f.ownerName })
+      success()
+      window.scrollTo({ top: 0 })
     } catch (err) {
       setError(err.message); buzzError(); ts.current?.reset()
     } finally { setBusy(false) }
@@ -289,7 +295,23 @@ export default function Create() {
       </div>
     )
   }
-  if (result) return <Result result={result} f={f} campaign={occasionOf(campaign?.id)} />
+  if (result) {
+    function createAnother() {
+      setResult(null)
+      setResultForm(null)
+      setF({
+        ...EMPTY,
+        ownerName: resultForm?.ownerName || '',
+        birthdayDate: campaign ? upcomingCampaignDate(campaign) || '' : '',
+      })
+      setWiz(0)
+      setErrs({})
+      setError('')
+      setToken('')
+      window.scrollTo({ top: 0 })
+    }
+    return <Result result={result} f={resultForm || f} campaign={occasionOf(campaign?.id)} onCreateAnother={createAnother} />
+  }
   if (!campaignId && !occasionType) {
     const availableOccasions = occasionOptions.filter((event) =>
       event.id === 'anniversary' || (event.is_priority && isCampaignActive(event)),
@@ -329,6 +351,7 @@ export default function Create() {
   return (
     <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-14 lg:py-12">
       <div>
+        <Link to="/create" className="btn-ghost btn-sm mb-5"><Icon name="back" size={16} />Change celebration</Link>
         <ol className="mb-6 grid grid-cols-4 gap-2" aria-label="Progress">
           {wizardSteps.map((s, i) => (
             <li key={s} aria-current={i === wiz ? 'step' : undefined}>

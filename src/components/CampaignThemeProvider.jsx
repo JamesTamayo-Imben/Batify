@@ -7,6 +7,7 @@ const CampaignThemeContext = createContext({
   themeId: null,
   previewThemeId: null,
   setPreviewThemeId: () => {},
+  setSystemThemeEnabled: () => {},
   loading: true,
 })
 
@@ -189,8 +190,18 @@ export default function CampaignThemeProvider({ children }) {
     }
   }
 
+  function setSystemThemeEnabled(enabled) {
+    try {
+      localStorage.setItem('batify:disable-seasonal-theme', String(!enabled))
+      setSystemThemeDisabled(!enabled)
+    } catch (error) {
+      console.error('Could not save the local seasonal theme preference:', error)
+      setSystemThemeDisabled(!enabled)
+    }
+  }
+
   return (
-    <CampaignThemeContext.Provider value={{ themeId: activeThemeId, previewThemeId, setPreviewThemeId, loading }}>
+    <CampaignThemeContext.Provider value={{ themeId: activeThemeId, previewThemeId, setPreviewThemeId, setSystemThemeEnabled, loading }}>
       <div data-theme={activeThemeId || 'confetti'} className="min-h-dvh bg-paper">
         {previewThemeId && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-ink bg-sun px-4 py-2 text-sm font-semibold text-ink">

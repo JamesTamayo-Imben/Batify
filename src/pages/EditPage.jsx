@@ -9,8 +9,9 @@ import { validateImage } from '../lib/files'
 import { giftLabel } from '../lib/gifts'
 import GiftArt from '../components/art/GiftArt'
 import Icon from '../components/Icon'
+import ShareOptions from '../components/ShareOptions'
 import { qrPng, qrSvg } from '../lib/qr'
-import { copyText, shareLink } from '../lib/share'
+import { copyText } from '../lib/share'
 import { rememberPage } from '../lib/mypages'
 import { CAMPAIGN_COLUMNS, giftOptionsFor, occasionOf } from '../lib/campaigns'
 import { sb } from '../lib/supabase'
@@ -199,7 +200,7 @@ export default function EditPage() {
         <div className="mt-4 flex flex-wrap gap-2">
           <Link to={`/p/${page.slug}`} className="btn-ghost btn-sm"><Icon name="eye" size={16} />View page</Link>
           <button className="btn-ghost btn-sm" onClick={async () => flash((await copyText(publicUrl)) ? 'Public link copied' : 'Could not copy', 'ok')}><Icon name="copy" size={16} />Copy link</button>
-          <button className="btn-ghost btn-sm" onClick={() => shareLink({ title: page.title, text: occasion?.shareText || 'Send me a birthday wish', url: publicUrl })}><Icon name="share" size={16} />Share</button>
+          <ShareOptions title={page.title} text={occasion?.shareText || 'Send me a birthday wish'} url={publicUrl} />
         </div>
         {campaignError && <p role="status" className="mt-2 text-sm text-flag">{campaignError}</p>}
         <ShareKit url={publicUrl} slug={page.slug} />
@@ -251,7 +252,7 @@ export default function EditPage() {
       )}
 
       {tab === 'gcash' && <GcashTab data={data} setData={setData} run={run} call={call} busy={busy} />}
-      {tab === 'settings' && <SettingsTab page={page} setData={setData} run={run} call={call} busy={busy} token={token} expired={expired} dateLabel={occasion?.dateLabel || 'Birthday'} />}
+      {tab === 'settings' && <SettingsTab page={page} setData={setData} run={run} call={call} busy={busy} token={token} expired={expired} dateLabel={occasion?.dateLabel || (page.campaign_type ? 'Event date' : 'Birthday')} />}
     </div>
   )
 }

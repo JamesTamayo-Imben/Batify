@@ -20,11 +20,13 @@ import SeasonalOpener, { EventMark } from '../components/SeasonalOpener'
 
 const SAMPLE = 'Thank you for making my year loud, messy and happy. Leave me a wish.'
 
-export function CampaignCard({ campaign, isActive, previewThemeId, setPreviewThemeId }) {
+export function CampaignCard({ campaign, isActive, previewThemeId, setPreviewThemeId, themeId, setSystemThemeEnabled }) {
   const [isAnimating, setIsAnimating] = useState(false)
   const previewTheme = previewThemeForCampaign(campaign)
   const eventLabel = occasionOf(campaign.id)?.label || campaign.title
   const isPreviewing = previewThemeId === previewTheme
+  const isActiveTheme = themeId === previewTheme
+  const canToggleActiveTheme = isActive && campaign.is_priority === true && !!previewTheme
   const canPreviewTheme = campaign.id === 'anniversary' || (!isActive && isPriorityPreviewAvailable(campaign))
 
   return (
@@ -40,6 +42,20 @@ export function CampaignCard({ campaign, isActive, previewThemeId, setPreviewThe
           <h3 className="text-2xl">{campaign.title}</h3>
           <p className="mt-2 flex-1 text-muted">{campaign.description}</p>
           <span className="mt-5 inline-block text-sm font-semibold text-muted">Link creation opens during the event.</span>
+        </div>
+      )}
+      {canToggleActiveTheme && (
+        <div className="mt-5 border-t border-ink/15 pt-4">
+          <p className="mb-3 text-sm text-muted">The {eventLabel} event is on. Its theme turns on automatically for new visitors.</p>
+          <button
+            type="button"
+            className="btn-sun w-full"
+            aria-pressed={isActiveTheme}
+            onClick={() => setSystemThemeEnabled(!isActiveTheme)}
+          >
+            <EventMark theme={previewTheme} className="event-mark" />
+            {isActiveTheme ? `Turn off ${eventLabel} theme` : `Turn on ${eventLabel} theme`}
+          </button>
         </div>
       )}
       {previewTheme && canPreviewTheme && (
@@ -114,7 +130,7 @@ const CHRISTMAS_STEPS = [
 ]
 
 export default function Home() {
-  const { themeId, previewThemeId, setPreviewThemeId } = useCampaignTheme()
+  const { themeId, previewThemeId, setPreviewThemeId, setSystemThemeEnabled } = useCampaignTheme()
   const christmasTheme = themeId === 'christmas'
   const steps = christmasTheme ? CHRISTMAS_STEPS : STEPS
   const createHref = christmasTheme ? '/create?campaign=christmas' : '/create'
@@ -196,6 +212,8 @@ export default function Home() {
                   isActive={isCampaignActive(campaign)}
                   previewThemeId={previewThemeId}
                   setPreviewThemeId={setPreviewThemeId}
+                  themeId={themeId}
+                  setSystemThemeEnabled={setSystemThemeEnabled}
                 />
               ))}
             </div>

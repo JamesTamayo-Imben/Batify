@@ -14,6 +14,7 @@ import Envelope3D, { useEnvelope } from '../components/Envelope3D'
 import FlipCountdown from '../components/FlipCountdown'
 import GiftBox3D from '../components/GiftBox3D'
 import GiftPicker from '../components/GiftPicker'
+import ShareOptions from '../components/ShareOptions'
 import SeasonalOpener from '../components/SeasonalOpener'
 import Snowfall from '../components/Snowfall'
 import { LogoMark } from '../components/Logo'
@@ -222,10 +223,31 @@ describe('seasonal campaigns', () => {
           isActive
           previewThemeId={null}
           setPreviewThemeId={vi.fn()}
+          themeId={null}
+          setSystemThemeEnabled={vi.fn()}
         />
       </MemoryRouter>,
     )
     expect(screen.queryByRole('button', { name: `Preview ${label} theme` })).toBeNull()
+  })
+
+  it('lets visitors turn an active priority event theme on and off', () => {
+    const setSystemThemeEnabled = vi.fn()
+    render(
+      <MemoryRouter>
+        <CampaignCard
+          campaign={{ id: 'christmas', title: 'Christmas Pamasko', description: 'Share a link', is_priority: true }}
+          isActive
+          previewThemeId={null}
+          setPreviewThemeId={vi.fn()}
+          themeId={null}
+          setSystemThemeEnabled={setSystemThemeEnabled}
+        />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Turn on Christmas theme' }))
+    expect(setSystemThemeEnabled).toHaveBeenCalledWith(true)
   })
 
   it('offers a preview for a priority event outside its active window', () => {
@@ -614,8 +636,21 @@ describe('public information pages', () => {
   })
 })
 
+describe('sharing options', () => {
+  it('offers distinct app destinations and a separate copy-link action', () => {
+    render(<ShareOptions title="A Batify letter" text="Send a greeting" url="https://batify.test/p/letter" />)
+    fireEvent.click(screen.getByText('Share'))
+
+    expect(screen.getByRole('link', { name: 'WhatsApp' }).getAttribute('href')).toContain('wa.me')
+    expect(screen.getByRole('link', { name: 'Telegram' }).getAttribute('href')).toContain('t.me/share/url')
+    expect(screen.getByRole('link', { name: 'Facebook' }).getAttribute('href')).toContain('facebook.com/sharer')
+    expect(screen.getByRole('link', { name: 'Email' }).getAttribute('href')).toContain('mailto:')
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
+  })
+})
+
 describe('edit page settings', () => {
-  async function openSettings(expiresAt) {
+  async function openSettings(expiresAt, campaignType = null) {
     vi.mocked(postJSON).mockResolvedValue({
       page: {
         slug: 'sample',
@@ -630,7 +665,7 @@ describe('edit page settings', () => {
         auto_approve_wishes: false,
         is_published: false,
         expires_at: expiresAt,
-        campaign_type: null,
+        campaign_type: campaignType,
       },
       wishes: [],
       contributions: [],
@@ -654,6 +689,22 @@ describe('edit page settings', () => {
     const publishedToggle = await openSettings('2020-01-01T00:00:00.000Z')
     expect(publishedToggle.disabled).toBe(true)
     expect(screen.getByText('This page has expired. Update its date to calculate a new expiry.')).toBeTruthy()
+  })
+
+  it('uses the Christmas date label in campaign settings', async () => {
+    const query = {
+      select: vi.fn(() => query),
+      eq: vi.fn(() => query),
+      maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
+    }
+    const from = vi.spyOn(sb, 'from').mockReturnValue(query)
+    try {
+      await openSettings('2099-12-31T00:00:00.000Z', 'christmas')
+      expect(screen.getByLabelText('Christmas date')).toBeTruthy()
+      expect(screen.queryByLabelText('Birthday')).toBeNull()
+    } finally {
+      from.mockRestore()
+    }
   })
 })
 

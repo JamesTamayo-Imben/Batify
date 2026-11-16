@@ -11,6 +11,7 @@ import Icon from '../components/Icon'
 import { LogoMark } from '../components/Logo'
 import ReportWish from '../components/ReportWish'
 import SeasonalOpener, { EventMark } from '../components/SeasonalOpener'
+import ShareOptions from '../components/ShareOptions'
 import { useCampaignTheme } from '../components/CampaignThemeProvider'
 import Turnstile from '../components/Turnstile'
 import NotFound from './NotFound'
@@ -23,7 +24,7 @@ import { giftLabel } from '../lib/gifts'
 import { CAMPAIGN_COLUMNS, giftOptionsFor, occasionOf } from '../lib/campaigns'
 import { error as buzzError, success, tap } from '../lib/haptics'
 import { clearUnwrapped, hasOpened, markOpened, markUnwrapped, wishUnwrapped } from '../lib/opened'
-import { copyText, shareLink } from '../lib/share'
+import { copyText } from '../lib/share'
 import { sb, PAGE_COLUMNS, WISH_COLUMNS } from '../lib/supabase'
 import { themeOf, themeStyleOf } from '../lib/themes'
 import useTitle from '../lib/useTitle'
@@ -488,12 +489,12 @@ export default function PublicPage() {
               {campaign?.title || occasion.label}
             </p>
           )}
-          <button className="btn-ghost btn-sm mt-6" onClick={async () => {
-            const r = await shareLink({ title: page.title, text: occasion ? `${occasion.shareText} to ${first}` : `Send ${first} a birthday wish`, url: location.href })
-            setNote(r === 'copied' ? 'Link copied.' : r === 'failed' ? 'Could not share. Copy the address from your browser.' : '')
-            if (r === 'copied') setTimeout(() => setNote(''), 2000)
-          }}><Icon name="share" size={16} />Share this page</button>
-          {note && <p role="status" className="mt-2 text-sm font-semibold">{note}</p>}
+          <ShareOptions
+            title={page.title}
+            text={occasion ? `${occasion.shareText} to ${first}` : `Send ${first} a birthday wish`}
+            url={location.href}
+            className="mt-6"
+          />
         </div>
       </header>
 
