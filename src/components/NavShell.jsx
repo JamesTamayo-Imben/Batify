@@ -7,6 +7,7 @@ const ITEMS = [
   { to: '/', label: 'Home', icon: 'home', end: true },
   { to: '/create', label: 'Write', desktopLabel: 'Write a letter', icon: 'pencil' },
   { to: '/edit', label: 'My page', icon: 'key' },
+  { to: '/history', label: 'History', icon: 'clock' },
 ]
 
 export default function NavShell() {
@@ -37,6 +38,7 @@ export default function NavShell() {
             <ul className="mt-3 space-y-1">
               <li><Link className="flex min-h-11 items-center hover:text-sun focus-visible:outline-sun" to="/create">Write a letter</Link></li>
               <li><Link className="flex min-h-11 items-center hover:text-sun focus-visible:outline-sun" to="/edit">Open my page</Link></li>
+              <li><Link className="flex min-h-11 items-center hover:text-sun focus-visible:outline-sun" to="/history">Your history</Link></li>
             </ul>
           </nav>
           <nav aria-label="Learn about Batify">
@@ -64,7 +66,7 @@ export default function NavShell() {
       <InstallHint />
 
       <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-ink bg-paper md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <ul className="mx-auto grid max-w-md grid-cols-3">
+        <ul className="mx-auto grid max-w-md grid-cols-4">
           {ITEMS.map((i) => (
             <li key={i.to}>
               <NavLink to={i.to} end={i.end} className={({ isActive }) => `mx-1 my-1 flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-xl border-2 text-xs font-bold transition-colors ${isActive ? 'border-ink bg-sun text-ink shadow-[0_2px_0_0_rgb(var(--ink))]' : 'border-transparent text-muted hover:bg-ink/5'}`}>

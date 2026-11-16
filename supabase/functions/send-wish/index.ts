@@ -3,8 +3,9 @@
 //   mode=contribution    : record a GCash contribution with screenshot proof
 //   mode=report          : report a wish for moderation
 import {
-  checkUpload, clean, clientIp, json, MEDIA_MAX, MEDIA_MIMES, PENDING_WISH_MEDIA_PREFIX, PROOF_MAX, PROOF_MIMES,
-  preflight, rateLimitDurable, serviceClient, stripUrls, verifyTurnstile,
+  checkUpload, clean, clientIp, hasBlockedLanguage, json, MEDIA_MAX, MEDIA_MIMES, parseDeviceInfo,
+  PENDING_WISH_MEDIA_PREFIX, PROOF_MAX, PROOF_MIMES, preflight, rateLimitDurable, serviceClient,
+  REQUEST_LIMITS, stripUrls, verifyTurnstile,
 } from "../_shared/common.ts";
 import { notifyPageOwner } from "../_shared/push.ts";
 
@@ -16,7 +17,7 @@ Deno.serve(async (req) => {
 
   try {
     const ip = clientIp(req);
-    if (!(await rateLimitDurable(`wish:${ip}`, 20, 10 * 60 * 1000))) {
+    if (!(await rateLimitDurable(`wish:${ip}`, REQUEST_LIMITS.wishSubmission.max, REQUEST_LIMITS.wishSubmission.windowMs))) {
       return json({ error: "You're sending too fast. Please wait a few minutes." }, 429);
     }
 
@@ -29,18 +30,22 @@ Deno.serve(async (req) => {
 
     const sb = serviceClient();
     const mode = clean(form.get("mode"), 20) || "wish";
+    const deviceInfo = parseDeviceInfo(req);
 
     // ---------------------------------------------------------------- report
     if (mode === "report") {
       const wishId = clean(form.get("wishId"), 64);
       const reason = clean(form.get("reason"), 300) || "unspecified";
+      if (hasBlockedLanguage(reason)) {
+        return json({ error: "Please revise this text to remove language that is not suitable for Batify." }, 400);
+      }
       const { data: wish } = await sb
         .from("wishes").select("id, pages!inner(is_published, expires_at)")
         .eq("id", wishId).eq("is_approved", true)
         .eq("pages.is_published", true).gt("pages.expires_at", new Date().toISOString())
         .maybeSingle();
       if (!wish) return json({ error: "Wish not found." }, 404);
-      const { error } = await sb.from("reports").insert({ wish_id: wishId, reason });
+      const { error } = await sb.from("reports").insert({ wish_id: wishId, reason, device_info: deviceInfo });
       if (error) return json({ error: "Could not submit report." }, 500);
       return json({ ok: true });
     }
@@ -57,6 +62,9 @@ Deno.serve(async (req) => {
     }
 
     const senderName = clean(form.get("senderName"), 60) || "Anonymous";
+    if (hasBlockedLanguage(senderName)) {
+      return json({ error: "Please revise this text to remove language that is not suitable for Batify." }, 400);
+    }
 
     // --------------------------------------------------------- contribution
     if (mode === "contribution") {
@@ -79,7 +87,7 @@ Deno.serve(async (req) => {
       if (up.error) { console.error(up.error); return json({ error: "Upload failed." }, 500); }
 
       const { data, error } = await sb.from("contributions").insert({
-        page_id: page.id, sender_name: senderName, amount, proof_url: path,
+        page_id: page.id, sender_name: senderName, amount, proof_url: path, device_info: deviceInfo,
       }).select("id").single();
       if (error) {
         await sb.storage.from("payment-proofs").remove([path]);
@@ -109,6 +117,9 @@ Deno.serve(async (req) => {
     }
 
     const message = stripUrls(clean(form.get("message"), 1000));
+    if (hasBlockedLanguage(message)) {
+      return json({ error: "Please revise this text to remove language that is not suitable for Batify." }, 400);
+    }
 
     let mediaUrl: string | null = null;
     let mediaType: string | null = null;
@@ -142,6 +153,7 @@ Deno.serve(async (req) => {
       media_url: mediaUrl,
       media_type: mediaType,
       is_approved: page.auto_approve_wishes === true,
+      device_info: deviceInfo,
     }).select("id, is_approved").single();
 
     if (error) {

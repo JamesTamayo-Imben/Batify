@@ -2,6 +2,9 @@
   RewriteEngine On
   RewriteBase /
 
+  RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Facebot|Twitterbot|WhatsApp|TelegramBot|Slackbot|LinkedInBot|Discordbot|Pinterest|SkypeUriPreview|Viber) [NC]
+  RewriteRule ^p/([a-z0-9-]+)/?$ preview.php?slug=$1 [L,QSA,NC]
+
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d

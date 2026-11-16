@@ -1,6 +1,8 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { writeFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 
 // Injects the AdSense <script> into <head> at build time, only when
 // VITE_ADSENSE_CLIENT is set (so dev / unconfigured builds stay clean).
@@ -38,6 +40,32 @@ function socialImagePlugin(siteUrl) {
   }
 }
 
+function phpString(value) {
+  return `'${String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
+}
+
+function infinityFreePreviewConfigPlugin(env) {
+  return {
+    name: 'batify-infinityfree-preview-config',
+    apply: 'build',
+    async closeBundle() {
+      const config = `<?php\nreturn [\n  'site_url' => ${phpString(env.VITE_SITE_URL)},\n  'supabase_url' => ${phpString(env.VITE_SUPABASE_URL)},\n  'supabase_anon_key' => ${phpString(env.VITE_SUPABASE_ANON_KEY)},\n];\n`
+      await writeFile(resolve(process.cwd(), 'dist/preview-config.php'), config, { mode: 0o644 })
+    },
+  }
+}
+
+function devManifestLinkPlugin() {
+  return {
+    name: 'batify-dev-manifest-link',
+    apply: 'serve',
+    enforce: 'post',
+    transformIndexHtml(html) {
+      return html.replace(/\s*<link rel="manifest" href="\/manifest\.webmanifest"\s*\/>/, '')
+    },
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   if (env.VITE_SUPABASE_ANON_KEY?.startsWith('sb_secret_')) {
@@ -51,6 +79,8 @@ export default defineConfig(({ mode }) => {
       react(),
       adsensePlugin(env.VITE_ADSENSE_CLIENT),
       socialImagePlugin(env.VITE_SITE_URL),
+      infinityFreePreviewConfigPlugin(env),
+      devManifestLinkPlugin(),
       VitePWA({
         registerType: 'autoUpdate',
         injectRegister: false, // we register manually in main.jsx (PROD only)
@@ -73,10 +103,20 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           importScripts: ['/push-sw.js'],
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,mp3}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
           navigateFallback: '/index.html',
           cleanupOutdatedCaches: true,
           runtimeCaching: [
+            {
+              urlPattern: /\/audio\/[^/]+$/,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'batify-audio',
+                expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 30 },
+                cacheableResponse: { statuses: [0, 200] },
+                rangeRequests: true,
+              },
+            },
             {
               urlPattern: /^https:\/\/[^/]+\.supabase\.co\/storage\/.*/i,
               handler: 'CacheFirst',

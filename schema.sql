@@ -448,3 +448,39 @@ drop policy if exists "wish-media public read" on storage.objects;
 
 -- Public media is retrievable by known URL, but anonymous object listing is not
 -- allowed. Pending media and payment proofs remain private; service_role only.
+
+-- ---------------------------------------------------------------------------
+-- V3: COARSE DEVICE REPORTING + PUBLIC READ GRANTS (additive, re-runnable)
+-- Apply this section to an existing Batify database without replacing data.
+-- ---------------------------------------------------------------------------
+
+alter table public.pages
+  add column if not exists device_info jsonb not null
+  default '{"device":"Unknown","browser":"Unknown","os":"Unknown"}'::jsonb;
+alter table public.wishes
+  add column if not exists device_info jsonb not null
+  default '{"device":"Unknown","browser":"Unknown","os":"Unknown"}'::jsonb;
+alter table public.reports
+  add column if not exists device_info jsonb not null
+  default '{"device":"Unknown","browser":"Unknown","os":"Unknown"}'::jsonb;
+alter table public.contributions
+  add column if not exists device_info jsonb not null
+  default '{"device":"Unknown","browser":"Unknown","os":"Unknown"}'::jsonb;
+
+update public.pages set device_info = '{"device":"Unknown","browser":"Unknown","os":"Unknown"}'::jsonb
+where device_info is null;
+update public.wishes set device_info = '{"device":"Unknown","browser":"Unknown","os":"Unknown"}'::jsonb
+where device_info is null;
+update public.reports set device_info = '{"device":"Unknown","browser":"Unknown","os":"Unknown"}'::jsonb
+where device_info is null;
+update public.contributions set device_info = '{"device":"Unknown","browser":"Unknown","os":"Unknown"}'::jsonb
+where device_info is null;
+
+-- The public app needs campaign_type for event-specific pages/previews.
+grant select (campaign_type) on public.pages to anon, authenticated;
+
+-- Keep the existing public wish-card fields readable, but never expose device data.
+revoke select on public.wishes from anon, authenticated;
+grant select (
+  id, page_id, sender_name, message, gift_type, media_url, media_type, is_approved, created_at
+) on public.wishes to anon, authenticated;

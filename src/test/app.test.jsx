@@ -33,9 +33,12 @@ import { WishItem } from '../pages/PublicPage'
 import { DEFAULT_CUSTOM_COLOR, themeOf, themeStyleOf } from '../lib/themes'
 import { giftOptionsFor, isCampaignActive, isEventDateNotPast, isEventDateWithin30Days, isPriorityPreviewAvailable, isValidCampaignEventDate, millisecondsUntilManilaMidnight, OCCASIONS, priorityEventCountdown, priorityThemeFor, previewThemeForCampaign, upcomingCampaignDate } from '../lib/campaigns'
 import { isPageExpired } from '../lib/pages'
-import { sb } from '../lib/supabase'
+import { adminAuth, sb } from '../lib/supabase'
+import { containsBlockedLanguage } from '../lib/contentFilter'
+import { clearHistory, readHistory, recordHistory } from '../lib/history'
+import History from '../pages/History'
 
-afterEach(() => { cleanup(); vi.useRealTimers(); localStorage.clear(); sessionStorage.clear() })
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllEnvs(); localStorage.clear(); sessionStorage.clear() })
 
 describe('themes', () => {
   it('keeps database ids and falls back safely', () => {
@@ -676,6 +679,26 @@ describe('sharing options', () => {
   })
 })
 
+describe('text moderation and local history', () => {
+  it('catches common profanity with punctuation, leetspeak, and Tagalog or Bisaya terms', () => {
+    expect(containsBlockedLanguage('f.u.c.k')).toBe(true)
+    expect(containsBlockedLanguage('pu7angina')).toBe(true)
+    expect(containsBlockedLanguage('yawa')).toBe(true)
+    expect(containsBlockedLanguage('Have a lovely birthday!')).toBe(false)
+  })
+
+  it('stores local activity without requiring an account and lets the visitor clear it', () => {
+    recordHistory('opened', 'Opened a letter', '/p/test-letter')
+    expect(readHistory()).toHaveLength(1)
+    render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><History /></MemoryRouter>)
+    expect(screen.getByText('Opened a letter')).toBeTruthy()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Clear history' }))
+    expect(readHistory()).toHaveLength(0)
+    clearHistory()
+  })
+})
+
 describe('edit page settings', () => {
   async function openSettings(expiresAt, campaignType = null) {
     vi.mocked(postJSON).mockResolvedValue({
@@ -737,7 +760,14 @@ describe('edit page settings', () => {
 
 describe('admin console', () => {
   beforeEach(() => {
-    sessionStorage.setItem('batify:admin', 'test-admin-secret')
+    vi.stubEnv('VITE_ADMIN_EMAIL', 'admin@example.com')
+    vi.spyOn(adminAuth.auth, 'onAuthStateChange').mockReturnValue({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    })
+    vi.spyOn(adminAuth.auth, 'getSession').mockResolvedValue({
+      data: { session: { access_token: 'test-admin-token', user: { email: 'admin@example.com' } } },
+      error: null,
+    })
     vi.mocked(postJSON).mockImplementation(async (_name, body) => {
       if (body.action === 'stats') {
         return { stats: { pages: 4, wishes: 9, pendingWishes: 3, contributions: 2, pendingPay: 1, reports: 1 } }
@@ -762,14 +792,67 @@ describe('admin console', () => {
     await waitFor(() => expect(postJSON).toHaveBeenCalledWith('admin', expect.objectContaining({
       action: 'list-wishes',
       pending: true,
-    })))
+    }), 'test-admin-token'))
     fireEvent.click(screen.getByRole('tab', { name: 'Overview' }))
     fireEvent.click(await screen.findByRole('button', { name: /Pending payments: 1/ }))
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Payments' }).getAttribute('aria-selected')).toBe('true'))
     await waitFor(() => expect(postJSON).toHaveBeenCalledWith('admin', expect.objectContaining({
       action: 'list-contributions',
       pending: true,
-    })))
+    }), 'test-admin-token'))
+  })
+
+  it('signs in with Google and routes the OAuth callback back to admin', async () => {
+    vi.spyOn(adminAuth.auth, 'getSession').mockResolvedValue({ data: { session: null }, error: null })
+    vi.spyOn(adminAuth.auth, 'signInWithOAuth').mockResolvedValue({
+      data: { provider: 'google', url: 'https://accounts.google.com' },
+      error: null,
+    })
+
+    render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Admin /></MemoryRouter>)
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue with Google' }))
+    await waitFor(() => expect(adminAuth.auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/admin`,
+        queryParams: { prompt: 'select_account' },
+      },
+    }))
+    expect((await screen.findByRole('button', { name: 'Please wait (30s)' })).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Please wait (30s)' }))
+    expect(adminAuth.auth.signInWithOAuth).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects a Google account that does not match the configured admin email', async () => {
+    vi.spyOn(adminAuth.auth, 'getSession').mockResolvedValue({
+      data: { session: { access_token: 'other-user-token', user: { email: 'someone@example.com' } } },
+      error: null,
+    })
+
+    render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Admin /></MemoryRouter>)
+    expect((await screen.findByRole('alert')).textContent).toContain('not authorized for Batify admin')
+    expect(screen.queryByRole('tab', { name: 'Overview' })).toBeNull()
+  })
+
+  it('explains that approved wishes leave the pending filter and may await page visibility', async () => {
+    let approved = false
+    vi.mocked(postJSON).mockImplementation(async (_name, body) => {
+      if (body.action === 'stats') {
+        return { stats: { pages: 1, wishes: 1, pendingWishes: 1, contributions: 0, pendingPay: 0, reports: 0 } }
+      }
+      if (body.action === 'list-wishes') {
+        return { wishes: approved ? [] : [{
+          id: 'wish-1', sender_name: 'Friend', gift_type: 'flower', is_approved: false,
+          pages: { title: 'A birthday page' },
+        }] }
+      }
+      if (body.action === 'approve-wish') { approved = true; return { ok: true } }
+      return { ok: true }
+    })
+    render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Admin /></MemoryRouter>)
+    fireEvent.click(await screen.findByRole('tab', { name: 'Wishes' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve wish' }))
+    expect(await screen.findByText(/Wish approved\. It leaves the Pending only list/)).toBeTruthy()
   })
 
   it('shows a count error instead of presenting stale or zero metrics', async () => {

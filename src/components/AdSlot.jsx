@@ -9,18 +9,19 @@ const CLIENT = import.meta.env.VITE_ADSENSE_CLIENT
  */
 export default function AdSlot({ slot, className = '' }) {
   const pushed = useRef(false)
+  const enabled = Boolean(CLIENT && slot)
 
   useEffect(() => {
-    if (!CLIENT || pushed.current) return
+    if (!enabled || pushed.current) return
     pushed.current = true // guard against StrictMode / re-render double push
     try {
       ;(window.adsbygoogle = window.adsbygoogle || []).push({})
     } catch (e) {
       console.warn('AdSense push failed', e)
     }
-  }, [])
+  }, [enabled])
 
-  if (!CLIENT) return null
+  if (!enabled) return null
   return (
     <aside aria-label="Advertisement" className={`mx-auto my-10 w-full max-w-3xl overflow-hidden ${className}`}>
       <p className="mb-1 text-center text-[10px] uppercase tracking-widest text-slate-400">Advertisement</p>

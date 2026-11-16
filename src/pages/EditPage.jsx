@@ -16,6 +16,7 @@ import { rememberPage } from '../lib/mypages'
 import { CAMPAIGN_COLUMNS, giftOptionsFor, occasionOf } from '../lib/campaigns'
 import { sb } from '../lib/supabase'
 import { isPageExpired } from '../lib/pages'
+import { containsBlockedLanguage, BLOCKED_LANGUAGE_MESSAGE } from '../lib/contentFilter'
 import useTitle from '../lib/useTitle'
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || ''
@@ -261,6 +262,7 @@ export default function EditPage() {
 function GcashTab({ data, setData, run, call, busy }) {
   const { page, contributions } = data
   const [form, setForm] = useState({ senderName: '', amount: '' })
+  const [nameError, setNameError] = useState('')
   const paidTotal = contributions.filter((c) => c.status === 'paid').reduce((s, c) => s + Number(c.amount), 0)
 
   return (
@@ -304,13 +306,22 @@ function GcashTab({ data, setData, run, call, busy }) {
         <summary className="cursor-pointer text-sm font-semibold text-slate-700">Log a payment manually</summary>
         <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(e) => {
           e.preventDefault()
+          if (containsBlockedLanguage(form.senderName)) {
+            setNameError(BLOCKED_LANGUAGE_MESSAGE)
+            return
+          }
+          setNameError('')
           run(async () => {
             const r = await call('create-contribution', { senderName: form.senderName, amount: form.amount, status: 'paid' })
             setData((d) => ({ ...d, contributions: [r.contribution, ...d.contributions] }))
             setForm({ senderName: '', amount: '' })
           }, 'Payment logged')
         }}>
-          <input className="field" placeholder="From" maxLength={60} value={form.senderName} onChange={(e) => setForm({ ...form, senderName: e.target.value })} aria-label="From" />
+          <div>
+            <input className="field" placeholder="From" maxLength={60} value={form.senderName}
+              onChange={(e) => { setForm({ ...form, senderName: e.target.value }); setNameError('') }} aria-label="From" />
+            {nameError && <p role="alert" className="mt-1 text-sm font-semibold text-flag">{nameError}</p>}
+          </div>
           <input className="field" placeholder="Amount (₱)" type="number" inputMode="decimal" min="1" step="0.01" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} aria-label="Amount" />
           <button className="btn-primary sm:col-span-2" disabled={busy}>{busy ? 'Saving…' : 'Add as paid'}</button>
         </form>
@@ -406,6 +417,10 @@ function SettingsTab({ page, setData, run, call, busy, token, expired, dateLabel
 
   const save = (e) => {
     e.preventDefault()
+    if ([f.owner_name, f.title, f.letter].some(containsBlockedLanguage)) {
+      flash(BLOCKED_LANGUAGE_MESSAGE, 'err')
+      return
+    }
     run(async () => {
       const r = await call('update', {
         patch: { ...f, reveal_at: fromLocalInput(f.reveal_at), gcash_number: f.gcash_number.trim() || null },

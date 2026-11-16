@@ -1,21 +1,21 @@
-// Super-admin console. Guarded by the ADMIN_SECRET function secret (no accounts).
-// The secret is kept in sessionStorage only (cleared when the tab closes).
+// Super-admin console. Login uses allowlisted Supabase Auth Google OAuth.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { postJSON } from '../lib/ajax'
+import { adminAuth } from '../lib/supabase'
 import { formatDateTime, peso } from '../lib/dates'
 import { giftLabel } from '../lib/gifts'
 import { copyText } from '../lib/share'
 import { isPageExpired } from '../lib/pages'
 import CampaignSettings from '../components/CampaignEditor'
 
-const SKEY = 'batify:admin'
-const getSecret = () => { try { return sessionStorage.getItem(SKEY) || '' } catch { return '' } }
+const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || '').trim().toLowerCase()
+const ADMIN_LOGIN_COOLDOWN_SECONDS = 30
 const TABS = [['overview', 'Overview'], ['pages', 'Pages'], ['wishes', 'Wishes'], ['reports', 'Reports'], ['payments', 'Payments'], ['campaigns', 'Campaigns']]
 const SUCCESS_MESSAGES = {
   'set-published': 'Page visibility updated.',
   'delete-page': 'Page and its wishes deleted.',
-  'approve-wish': 'Wish approved.',
+  'approve-wish': 'Wish approved. It leaves the Pending only list; uncheck that filter to find it. Public display requires the page to be published, open, and revealed.',
   'delete-wish': 'Wish deleted.',
   'dismiss-report': 'Report dismissed.',
   'mark-paid': 'Contribution marked as paid.',
@@ -32,11 +32,34 @@ function campaignActionError(action, message) {
   return message
 }
 
+function DeviceInfo({ value }) {
+  const info = value && typeof value === 'object' ? value : {}
+  const detail = [info.device, info.browser, info.os]
+    .map((item) => typeof item === 'string' && item ? item : 'Unknown')
+    .join(' · ')
+  return <p className="mt-1 text-xs text-muted">Device: {detail}</p>
+}
+
+function wishApprovalStatus(wish) {
+  if (!wish.is_approved) return 'Pending'
+  const page = wish.pages
+  if (!page?.is_published) return 'Approved · page unpublished'
+  if (page.opens_at && Date.parse(page.opens_at) > Date.now()) {
+    return `Approved · page opens ${formatDateTime(page.opens_at)}`
+  }
+  if (page.expires_at && Date.parse(page.expires_at) <= Date.now()) return 'Approved · page expired'
+  if (page.reveal_at && Date.parse(page.reveal_at) > Date.now()) {
+    return `Approved · reveals ${formatDateTime(page.reveal_at)}`
+  }
+  return 'Approved · visible'
+}
+
 export default function Admin() {
-  const [secret, setSecret] = useState(getSecret)
-  const [input, setInput] = useState('')
+  const [sessionToken, setSessionToken] = useState('')
+  const [authReady, setAuthReady] = useState(false)
   const [tab, setTab] = useState('overview')
   const [busy, setBusy] = useState(false)
+  const [loginCooldown, setLoginCooldown] = useState(0)
   const [error, setError] = useState('')
   const [stats, setStats] = useState(null)
   const [campaigns, setCampaigns] = useState([])
@@ -47,6 +70,15 @@ export default function Admin() {
   const [note, setNote] = useState('')
   const loadVersion = useRef(0)
   const activeTab = useRef(tab)
+  const signInStarted = useRef(false)
+
+  useEffect(() => {
+    if (loginCooldown <= 0) return undefined
+    const timer = window.setTimeout(() => {
+      setLoginCooldown((seconds) => Math.max(0, seconds - 1))
+    }, 1000)
+    return () => window.clearTimeout(timer)
+  }, [loginCooldown])
 
   useEffect(() => {
     const m = document.createElement('meta')
@@ -55,14 +87,55 @@ export default function Admin() {
     return () => m.remove()
   }, [])
 
-  const call = useCallback((action, payload = {}) => postJSON('admin', { adminSecret: secret, action, ...payload }), [secret])
+  useEffect(() => {
+    let active = true
+    const acceptSession = (session) => {
+      if (!session) {
+        setSessionToken('')
+        return
+      }
+      const email = session.user?.email?.trim().toLowerCase()
+      if (!ADMIN_EMAIL || email !== ADMIN_EMAIL) {
+        setSessionToken('')
+        setError(`That Google account is not authorized for Batify admin. Sign in with the configured admin account${ADMIN_EMAIL ? ` (${ADMIN_EMAIL})` : ''}.`)
+        return
+      }
+      setError('')
+      setSessionToken(session.access_token)
+    }
+    const { data: { subscription } } = adminAuth.auth.onAuthStateChange((_event, session) => {
+      if (!active) return
+      acceptSession(session)
+    })
+    adminAuth.auth.getSession().then(({ data, error: sessionError }) => {
+      if (!active) return
+      if (sessionError) setError(`Could not restore the admin sign-in: ${sessionError.message}`)
+      acceptSession(data?.session)
+      setAuthReady(true)
+    }).catch((sessionError) => {
+      if (!active) return
+      setError(`Could not restore the admin sign-in: ${sessionError.message}`)
+      setAuthReady(true)
+    })
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
+  }, [])
 
-  const logout = useCallback(() => {
-    try { sessionStorage.removeItem(SKEY) } catch { /* noop */ }
+  const call = useCallback((action, payload = {}) => postJSON('admin', { action, ...payload }, sessionToken), [sessionToken])
+
+  const logout = useCallback(async () => {
     loadVersion.current += 1
-    setSecret('')
+    setSessionToken('')
     setStats(null)
     setBusy(false)
+    try {
+      const { error: signOutError } = await adminAuth.auth.signOut({ scope: 'local' })
+      if (signOutError) throw signOutError
+    } catch (signOutError) {
+      setError(`Signed out in this view, but could not clear the Supabase session: ${signOutError.message}`)
+    }
   }, [])
 
   const load = useCallback(async (which = tab) => {
@@ -87,14 +160,14 @@ export default function Admin() {
     } catch (e) {
       if (requestVersion !== loadVersion.current) return
       setError(which === 'campaigns' ? campaignActionError('list-campaigns', e.message) : e.message)
-      if (/invalid admin secret/i.test(e.message)) logout()
+      if (/admin session expired/i.test(e.message)) logout()
     } finally {
       if (requestVersion === loadVersion.current) setBusy(false)
     }
   }, [call, logout, pendingOnly, pendingPaymentsOnly, q, tab])
 
   useEffect(() => { activeTab.current = tab }, [tab])
-  useEffect(() => { if (secret) load(tab) }, [secret, tab, pendingOnly, pendingPaymentsOnly]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (sessionToken) load(tab) }, [sessionToken, tab, pendingOnly, pendingPaymentsOnly]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function act(action, payload, confirmMsg) {
     if (busy || (confirmMsg && !confirm(confirmMsg))) return
@@ -126,13 +199,31 @@ export default function Admin() {
     }
   }
 
-  function login(e) {
-    e.preventDefault()
-    const s = input.trim()
-    if (!s) return
-    try { sessionStorage.setItem(SKEY, s) } catch { /* noop */ }
-    setError('')
-    setSecret(s); setInput('')
+  async function signInWithGoogle() {
+    if (busy || loginCooldown > 0 || signInStarted.current) return
+    if (!ADMIN_EMAIL) {
+      setError('Set VITE_ADMIN_EMAIL to the same address as the Supabase ADMIN_EMAIL secret, then restart or rebuild the app.')
+      return
+    }
+    signInStarted.current = true
+    setBusy(true); setError(''); setNote('')
+    try {
+      const { error: signInError } = await adminAuth.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/admin`,
+          queryParams: { prompt: 'select_account' },
+        },
+      })
+      if (signInError) throw signInError
+      setLoginCooldown(ADMIN_LOGIN_COOLDOWN_SECONDS)
+      signInStarted.current = false
+    } catch (e) {
+      signInStarted.current = false
+      setError(`Could not start Google sign-in: ${e.message}`)
+    } finally {
+      setBusy(false)
+    }
   }
 
   function selectTab(nextTab) {
@@ -151,17 +242,26 @@ export default function Admin() {
     document.getElementById(`admin-tab-${nextTab}`)?.focus()
   }
 
-  if (!secret) {
+  if (!authReady) {
+    return <p role="status" className="page-wrap text-center text-muted">Checking admin sign-in…</p>
+  }
+
+  if (!sessionToken) {
     return (
       <div className="page-wrap max-w-md">
         <h1 className="text-3xl font-bold">Admin console</h1>
-        <p className="mt-2 text-muted">Enter the admin secret to manage Batify pages and activity.</p>
-        <form onSubmit={login} className="card mt-5 space-y-3">
-          <label className="label" htmlFor="sec">Admin secret</label>
-          <input id="sec" type="password" className="field" value={input} onChange={(e) => setInput(e.target.value)} autoComplete="current-password" required />
+        <p className="mt-2 text-muted">Sign in with the authorized Google account to manage Batify pages and activity.</p>
+        <div className="card mt-5 space-y-3">
+          <p className="text-sm text-muted">
+            Continue with <span className="font-semibold">{ADMIN_EMAIL || 'the configured admin Google account'}</span>.
+          </p>
           {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-          <button className="btn-primary w-full" disabled={!input.trim()}>Enter admin</button>
-        </form>
+          {note && <p role="status" className="text-sm text-emerald-700">{note}</p>}
+          {loginCooldown > 0 && <p role="status" className="text-sm text-muted">To prevent repeated sign-in requests, wait {loginCooldown} seconds before trying again.</p>}
+          <button type="button" className="btn-primary w-full" disabled={busy || loginCooldown > 0} onClick={signInWithGoogle}>
+            {busy ? 'Opening Google…' : loginCooldown > 0 ? `Please wait (${loginCooldown}s)` : 'Continue with Google'}
+          </button>
+        </div>
       </div>
     )
   }
@@ -220,16 +320,30 @@ export default function Admin() {
       <section id="admin-panel" role="tabpanel" aria-labelledby={`admin-tab-${tab}`} aria-busy={busy} tabIndex={0} className="min-w-0">
         <h2 className="sr-only">{currentTab}</h2>
         {tab === 'overview' && stats && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {metrics.map((metric) => (
-              <button key={metric.label} type="button" className="card text-left transition-colors hover:bg-accent-soft focus-visible:outline-accent"
-                onClick={() => openMetric(metric)} aria-label={`${metric.label}: ${metric.value}. ${metric.hint}.`}>
-                <span className="block text-3xl font-bold tabular-nums text-accent">{metric.value}</span>
-                <span className="mt-1 block font-bold">{metric.label}</span>
-                <span className="mt-2 block text-sm text-muted">{metric.hint}</span>
-              </button>
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {metrics.map((metric) => (
+                <button key={metric.label} type="button" className="card text-left transition-colors hover:bg-accent-soft focus-visible:outline-accent"
+                  onClick={() => openMetric(metric)} aria-label={`${metric.label}: ${metric.value}. ${metric.hint}.`}>
+                  <span className="block text-3xl font-bold tabular-nums text-accent">{metric.value}</span>
+                  <span className="mt-1 block font-bold">{metric.label}</span>
+                  <span className="mt-2 block text-sm text-muted">{metric.hint}</span>
+                </button>
+              ))}
+            </div>
+            <section aria-labelledby="rate-limit-heading" className="card mt-4">
+              <h3 id="rate-limit-heading" className="text-xl font-bold">Abuse-prevention limits</h3>
+              <p className="mt-1 text-sm text-muted">Current server-side limits, shared across requests when the database limiter is available.</p>
+              <ul className="mt-3 divide-y divide-slate-200">
+                {(stats.rateLimits || []).map((limit) => (
+                  <li key={limit.action} className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-2 text-sm">
+                    <span className="font-semibold">{limit.action}</span>
+                    <span className="text-muted">{limit.limit} / {limit.window}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </>
         )}
         {tab === 'overview' && !stats && !busy && !error && <p className="card text-sm text-muted">The overview is not available yet. Refresh to try again.</p>}
 
@@ -248,6 +362,7 @@ export default function Admin() {
                       <Link to={`/p/${p.slug}`} className="break-words font-bold text-brand-600">{p.title}</Link>
                       <p className="mt-1 break-words text-sm text-muted">{p.owner_name} · {p.slug}</p>
                       <p className="mt-1 text-xs text-muted">{p.wishes?.[0]?.count ?? 0} wishes · created {formatDateTime(p.created_at)} · expires {formatDateTime(p.expires_at)}</p>
+                      <DeviceInfo value={p.device_info} />
                     </div>
                     <span className={`badge ${expired ? 'bg-amber-100 text-amber-700' : p.is_published ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>{expired ? 'expired' : p.is_published ? 'published' : 'hidden'}</span>
                   </div>
@@ -278,7 +393,10 @@ export default function Admin() {
             {rows.wishes.map((w) => (
               <article key={w.id} className="card !p-4">
                 <WishBody w={w} />
-                <p className="mt-2 text-xs text-muted">On {w.pages?.title} · {w.is_approved ? 'Live' : 'Pending'}</p>
+                <p className="mt-2 text-xs text-muted">
+                  On {w.pages?.title} · {wishApprovalStatus(w)}
+                </p>
+                <DeviceInfo value={w.device_info} />
                 <div className="mt-3 flex flex-wrap gap-2">
                   {!w.is_approved && <button type="button" className="btn-primary btn-sm" disabled={busy} onClick={() => act('approve-wish', { wishId: w.id })}>Approve wish</button>}
                   <button type="button" className="btn-danger btn-sm" disabled={busy} onClick={() => act('delete-wish', { wishId: w.id }, 'Delete this wish?')}>Delete wish</button>
@@ -294,6 +412,7 @@ export default function Admin() {
             {rows.reports.map((r) => (
               <article key={r.id} className="card !p-4">
                 <p className="mb-2 text-sm font-semibold text-amber-700">Reported for {r.reason} · {formatDateTime(r.created_at)}</p>
+                <DeviceInfo value={r.device_info} />
                 {r.wishes ? <WishBody w={r.wishes} /> : <p className="text-sm text-muted">The reported wish has already been removed.</p>}
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button type="button" className="btn-ghost btn-sm" disabled={busy} onClick={() => act('dismiss-report', { reportId: r.id })}>Dismiss report</button>
@@ -320,6 +439,7 @@ export default function Admin() {
                   <div className="min-w-0">
                     <p className="font-bold">{c.sender_name || 'Someone'} · {peso(c.amount)}</p>
                     <p className="mt-1 break-words text-sm text-muted">To {c.pages?.title} · {formatDateTime(c.created_at)}</p>
+                    <DeviceInfo value={c.device_info} />
                   </div>
                   <span className={`badge ${c.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{c.status}</span>
                 </div>

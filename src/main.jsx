@@ -22,10 +22,11 @@ const EditEntry = lazy(() => import('./pages/EditEntry'))
 const EditPage = lazy(() => import('./pages/EditPage'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 const Admin = lazy(() => import('./pages/Admin'))
+const History = lazy(() => import('./pages/History'))
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Suspense fallback={<p className="page-wrap text-center text-muted">Loading page…</p>}>
         <Routes>
           {/* The letter is immersive: no site chrome around it. */}
@@ -41,6 +42,7 @@ function App() {
             <Route path="/edit" element={<EditEntry />} />
             <Route path="/edit/:token" element={<EditPage />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/history" element={<History />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>

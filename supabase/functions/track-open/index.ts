@@ -1,6 +1,6 @@
 // track-open: counts a letter opening. Best effort and deliberately quiet: it always answers 200
 // for well-formed requests, so rate-limited or unknown slugs reveal nothing and never break the page.
-import { clean, clientIp, json, preflight, rateLimitDurable, serviceClient } from "../_shared/common.ts";
+import { clean, clientIp, json, preflight, rateLimitDurable, REQUEST_LIMITS, serviceClient } from "../_shared/common.ts";
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -15,8 +15,8 @@ Deno.serve(async (req) => {
 
     const ip = clientIp(req);
     // One IP cannot inflate the counter: 60 opens/hour overall, 2 per page per hour.
-    if (!(await rateLimitDurable(`open:${ip}`, 60, 60 * 60 * 1000))) return json({ ok: true, counted: false });
-    if (!(await rateLimitDurable(`open:${ip}:${slug}`, 2, 60 * 60 * 1000))) return json({ ok: true, counted: false });
+    if (!(await rateLimitDurable(`open:${ip}`, REQUEST_LIMITS.openPerIp.max, REQUEST_LIMITS.openPerIp.windowMs))) return json({ ok: true, counted: false });
+    if (!(await rateLimitDurable(`open:${ip}:${slug}`, REQUEST_LIMITS.openPerPage.max, REQUEST_LIMITS.openPerPage.windowMs))) return json({ ok: true, counted: false });
 
     const { error } = await serviceClient().rpc("increment_open", { p_slug: slug });
     if (error) {

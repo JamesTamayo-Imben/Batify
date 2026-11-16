@@ -1,7 +1,9 @@
 // create-page — creates a birthday page and returns { slug, editToken }.
 import {
   clean, clientIp, isValidDate, json, normalizeGcash, parseTimestamp,
-  isValidTheme, preflight, randomString, rateLimitDurable, serviceClient, slugify, verifyTurnstile,
+  hasBlockedLanguage, isValidTheme, parseDeviceInfo, preflight, randomString, rateLimitDurable,
+  REQUEST_LIMITS,
+  serviceClient, slugify, verifyTurnstile,
 } from "../_shared/common.ts";
 
 function campaignIsActive(campaign: {
@@ -61,7 +63,7 @@ Deno.serve(async (req) => {
 
   try {
     const ip = clientIp(req);
-    if (!(await rateLimitDurable(`create:${ip}`, 5, 60 * 60 * 1000))) {
+    if (!(await rateLimitDurable(`create:${ip}`, REQUEST_LIMITS.pageCreate.max, REQUEST_LIMITS.pageCreate.windowMs))) {
       return json({ error: "Too many pages created. Please try again later." }, 429);
     }
 
@@ -79,6 +81,9 @@ Deno.serve(async (req) => {
     const letter = clean(body.letter, 8000);
     if (!ownerName || !title || !letter || !body.birthdayDate) {
       return json({ error: "Name, title, letter and birthday date are required." }, 400);
+    }
+    if (hasBlockedLanguage(ownerName, title, letter)) {
+      return json({ error: "Please revise this text to remove language that is not suitable for Batify." }, 400);
     }
     if (!isValidDate(body.birthdayDate)) return json({ error: "Invalid birthday date." }, 400);
 
@@ -162,6 +167,7 @@ Deno.serve(async (req) => {
         owner_name: ownerName,
         title,
         letter,
+        device_info: parseDeviceInfo(req),
         birthday_date: body.birthdayDate,
         opens_at: opensAt,
         campaign_type: campaignType || null,

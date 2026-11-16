@@ -22,10 +22,14 @@ async function request(fn, init) {
   return data
 }
 
-export function postJSON(fn, body) {
+export function postJSON(fn, body, accessToken = '') {
   return request(fn, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', apikey: KEY, Authorization: `Bearer ${KEY}` },
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: KEY,
+      Authorization: `Bearer ${accessToken || KEY}`,
+    },
     body: JSON.stringify(body),
   })
 }

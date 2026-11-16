@@ -25,6 +25,8 @@ import { CAMPAIGN_COLUMNS, giftOptionsFor, occasionOf } from '../lib/campaigns'
 import { error as buzzError, success, tap } from '../lib/haptics'
 import { clearUnwrapped, hasOpened, markOpened, markUnwrapped, wishUnwrapped } from '../lib/opened'
 import { copyText } from '../lib/share'
+import { containsBlockedLanguage, BLOCKED_LANGUAGE_MESSAGE } from '../lib/contentFilter'
+import { recordHistory } from '../lib/history'
 import { sb, PAGE_COLUMNS, WISH_COLUMNS } from '../lib/supabase'
 import { themeOf, themeStyleOf } from '../lib/themes'
 import useTitle from '../lib/useTitle'
@@ -232,6 +234,10 @@ function SendWishForm({ page, revealed, giftOptions }) {
   async function submit(e) {
     e.preventDefault()
     if (busy || !token) return
+    if (containsBlockedLanguage(name) || containsBlockedLanguage(message)) {
+      setError(BLOCKED_LANGUAGE_MESSAGE)
+      return
+    }
     if (gift === 'media') { const m = validateMedia(file); if (m) { setFileErr(m); return } }
     setBusy(true); setError('')
     try {
@@ -240,6 +246,7 @@ function SendWishForm({ page, revealed, giftOptions }) {
       fd.set('senderName', name.trim()); fd.set('message', message.trim()); fd.set('giftType', gift)
       if (gift === 'media' && file) fd.set('file', file)
       const data = await postForm('send-wish', fd)
+      recordHistory('sent', `Sent a ${messageNoun}`, `/p/${page.slug}`)
       success(); setSent(data.wish)
     } catch (err) { setError(err.message); buzzError(); ts.current?.reset() } finally { setBusy(false) }
   }
@@ -299,6 +306,10 @@ function GcashSection({ page }) {
   async function submit(e) {
     e.preventDefault()
     if (busy || !token) return
+    if (containsBlockedLanguage(name)) {
+      setError(BLOCKED_LANGUAGE_MESSAGE)
+      return
+    }
     const msg = validateImage(proof)
     if (msg) return setError(`Payment screenshot: ${msg}`)
     setBusy(true); setError('')
@@ -307,6 +318,7 @@ function GcashSection({ page }) {
       fd.set('mode', 'contribution'); fd.set('turnstileToken', token); fd.set('slug', page.slug)
       fd.set('senderName', name.trim()); fd.set('amount', amount); fd.set('proof', proof)
       await postForm('send-wish', fd)
+      recordHistory('sent', 'Sent a GCash contribution', `/p/${page.slug}`)
       success(); setDone(true); fireConfetti({ x: 0.5, y: 0.8, count: 70, power: 0.7 })
     } catch (err) { setError(err.message); buzzError(); ts.current?.reset() } finally { setBusy(false) }
   }

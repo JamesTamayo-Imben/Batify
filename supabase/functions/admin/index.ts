@@ -1,18 +1,18 @@
-// admin — super-admin API (the "manage all" role). No accounts: guarded by a
-// single secret set with `supabase secrets set ADMIN_SECRET=<long random string>`.
-// Can: stats, list/search pages (incl. edit tokens, for owner support),
-// unpublish/delete pages, moderate wishes + reports, verify payments.
+// admin — super-admin API guarded by Supabase Auth email OTP sessions.
 import {
   clean, clientIp, json, pendingWishMediaPath, preflight, privatizeLegacyWishMedia,
-  publishPendingWishMedia, rateLimitDurable, serviceClient, signPendingWishMedia, storagePathFromUrl,
+  publishPendingWishMedia, rateLimitDurable, REQUEST_LIMITS, serviceClient, signPendingWishMedia, storagePathFromUrl,
 } from "../_shared/common.ts";
 
-function safeEqual(a: string, b: string): boolean {
-  const ea = new TextEncoder().encode(a), eb = new TextEncoder().encode(b);
-  let diff = ea.length ^ eb.length;
-  for (let i = 0; i < Math.max(ea.length, eb.length); i++) diff |= (ea[i] ?? 0) ^ (eb[i] ?? 0);
-  return diff === 0;
-}
+const RATE_LIMITS = [
+  { action: "Create pages", limit: REQUEST_LIMITS.pageCreate.max, window: "1 hour per IP" },
+  { action: "Wishes, reports, contributions", limit: REQUEST_LIMITS.wishSubmission.max, window: "10 minutes per IP, shared endpoint" },
+  { action: "Owner dashboard actions", limit: REQUEST_LIMITS.ownerRequest.max, window: "1 minute per IP" },
+  { action: "Owner actions with a valid edit link", limit: REQUEST_LIMITS.ownerValidToken.max, window: "1 minute per IP" },
+  { action: "Invalid edit-link attempts", limit: REQUEST_LIMITS.ownerInvalidToken.max, window: "10 minutes per IP" },
+  { action: "Open tracking", limit: REQUEST_LIMITS.openPerIp.max, window: "1 hour per IP; 2 per page" },
+  { action: "Admin requests", limit: REQUEST_LIMITS.adminRequest.max, window: "1 minute per IP" },
+];
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -20,23 +20,29 @@ Deno.serve(async (req) => {
 
   try {
     const ip = clientIp(req);
-    if (!(await rateLimitDurable(`admin:${ip}`, 60, 60 * 1000))) return json({ error: "Too many requests." }, 429);
-
-    const secret = Deno.env.get("ADMIN_SECRET");
-    if (!secret || secret.length < 16) return json({ error: "Admin is not configured." }, 503);
+    if (!(await rateLimitDurable(`admin:${ip}`, REQUEST_LIMITS.adminRequest.max, REQUEST_LIMITS.adminRequest.windowMs))) return json({ error: "Too many requests." }, 429);
 
     let body: Record<string, unknown>;
     try { body = await req.json(); } catch { return json({ error: "Invalid JSON body." }, 400); }
 
-    const given = typeof body.adminSecret === "string" ? body.adminSecret : "";
-    if (!safeEqual(given, secret)) {
-      if (!(await rateLimitDurable(`admin-fail:${ip}`, 8, 15 * 60 * 1000))) return json({ error: "Too many attempts." }, 429);
-      return json({ error: "Invalid admin secret." }, 401);
-    }
-
     const sb = serviceClient();
     const id = (k: string) => clean(body[k], 64);
     const action = clean(body.action, 40);
+
+    const bearer = req.headers.get("authorization") || "";
+    const token = bearer.match(/^Bearer\s+(.+)$/i)?.[1] || "";
+    if (!token || token.length > 4096) return json({ error: "Admin session expired. Sign in again." }, 401);
+    const { data: { user }, error: authError } = await sb.auth.getUser(token);
+    if (authError || !user) return json({ error: "Admin session expired. Sign in again." }, 401);
+    const adminEmail = Deno.env.get("ADMIN_EMAIL")?.trim().toLowerCase();
+    if (!adminEmail) {
+      console.error("ADMIN_EMAIL is not configured for the admin function.");
+      return json({ error: "Admin access is not configured." }, 503);
+    }
+    if (!user.email_confirmed_at || !user.email || user.email.toLowerCase() !== adminEmail) {
+      return json({ error: "This account is not authorized to use the admin console." }, 403);
+    }
+
     async function addSignedWishMedia(wish: Record<string, unknown> | null) {
       if (!wish || typeof wish.media_url !== "string" || !wish.media_url.startsWith("pending-wish-media:")) return wish;
       const pageId = typeof wish.page_id === "string" ? wish.page_id : "";
@@ -61,7 +67,7 @@ Deno.serve(async (req) => {
         const failed = counts.find((result) => result.error);
         if (failed?.error) return json({ error: `Could not load admin counts: ${failed.error.message}` }, 500);
         const [pages, wishes, pendingWishes, contributions, pendingPay, reports] = counts.map((result) => result.count);
-        return json({ stats: { pages, wishes, pendingWishes, contributions, pendingPay, reports } });
+        return json({ stats: { pages, wishes, pendingWishes, contributions, pendingPay, reports, rateLimits: RATE_LIMITS } });
       }
 
       case "list-campaigns": {
@@ -125,7 +131,7 @@ Deno.serve(async (req) => {
       case "list-pages": {
         const q = clean(body.q, 60).replace(/[%,()]/g, "");
         let query = sb.from("pages")
-          .select("id, slug, edit_token, owner_name, title, birthday_date, expires_at, reveal_at, is_published, created_at, wishes(count)")
+          .select("id, slug, edit_token, owner_name, title, birthday_date, expires_at, reveal_at, is_published, created_at, device_info, wishes(count)")
           .order("created_at", { ascending: false }).limit(100);
         if (q) query = query.or(`slug.ilike.%${q}%,owner_name.ilike.%${q}%,title.ilike.%${q}%`);
         const { data, error } = await query;
@@ -152,7 +158,7 @@ Deno.serve(async (req) => {
 
       case "list-wishes": {
         let query = sb.from("wishes")
-          .select("*, pages(slug, title)").order("created_at", { ascending: false }).limit(100);
+          .select("*, pages(slug, title, reveal_at, is_published, opens_at, expires_at)").order("created_at", { ascending: false }).limit(100);
         if (body.pending === true) query = query.eq("is_approved", false);
         if (id("pageId")) query = query.eq("page_id", id("pageId"));
         const { data, error } = await query;
@@ -271,7 +277,7 @@ Deno.serve(async (req) => {
 
       case "list-reports": {
         const { data, error } = await sb.from("reports")
-          .select("id, reason, created_at, wishes(id, sender_name, message, media_url, media_type, is_approved, pages(slug, title))")
+          .select("id, reason, created_at, device_info, wishes(id, sender_name, message, media_url, media_type, is_approved, pages(slug, title))")
           .order("created_at", { ascending: false }).limit(100);
         if (error) return json({ error: error.message }, 500);
         return json({ reports: data });

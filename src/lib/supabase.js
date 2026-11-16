@@ -12,6 +12,10 @@ export const sb = createClient(url || 'http://localhost:54321', key || 'anon', {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 })
 
+export const adminAuth = createClient(url || 'http://localhost:54321', key || 'anon', {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' },
+})
+
 // edit_token is deliberately not selectable by anon (column-level grants in schema.sql),
 // so we must always list columns — never select('*') on pages.
 export const PAGE_COLUMNS =

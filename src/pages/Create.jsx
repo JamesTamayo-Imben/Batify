@@ -14,6 +14,8 @@ import { CAMPAIGN_COLUMNS, isCampaignActive, isValidCampaignEventDate, occasionO
 import { error as buzzError, success, tap } from '../lib/haptics'
 import { rememberPage } from '../lib/mypages'
 import { copyText } from '../lib/share'
+import { containsBlockedLanguage, BLOCKED_LANGUAGE_MESSAGE } from '../lib/contentFilter'
+import { recordHistory } from '../lib/history'
 import { qrPng, qrSvg } from '../lib/qr'
 import { sb } from '../lib/supabase'
 import ThemePicker from '../components/ThemePicker'
@@ -163,6 +165,11 @@ export default function Create() {
   const letterRef = useRef(null)
   const heading = useRef(null)
   const env = useEnvelope({ max: 3 })
+  useEffect(() => {
+    if (campaignId || occasionType) {
+      recordHistory('writing', 'Started writing a letter', '/create')
+    }
+  }, [campaignId, occasionType])
   useTitle(campaign?.title
     ? `Create a ${campaign.title} link - Batify`
     : !campaignId && !occasionType
@@ -262,6 +269,10 @@ export default function Create() {
   async function submit(e) {
     e.preventDefault()
     if (busy || !token) return
+    if (containsBlockedLanguage(f.ownerName) || containsBlockedLanguage(f.title) || containsBlockedLanguage(f.letter)) {
+      setError(BLOCKED_LANGUAGE_MESSAGE)
+      return
+    }
     setBusy(true); setError('')
     try {
       const data = await postJSON('create-page', {
@@ -272,6 +283,7 @@ export default function Create() {
         campaignType: campaign?.id,
       })
       rememberPage({ slug: data.slug, token: data.editToken, title: f.title.trim() })
+      recordHistory('created', `Created “${f.title.trim()}”`, `/p/${data.slug}`)
       clearDraft()
       setResultForm({ ...f })
       setResult(data)

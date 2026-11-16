@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import Turnstile from './Turnstile'
 import { postForm } from '../lib/ajax'
+import { recordHistory } from '../lib/history'
 
 const REASONS = ['Inappropriate', 'Spam', 'Harassment', 'Other']
 
@@ -22,6 +23,7 @@ export default function ReportWish({ wishId, wishLabel = 'wish' }) {
       const fd = new FormData()
       fd.set('mode', 'report'); fd.set('wishId', wishId); fd.set('reason', reason); fd.set('turnstileToken', token)
       await postForm('send-wish', fd)
+      recordHistory('sent', 'Reported a wish')
       setDone(true)
     } catch (e) { setError(e.message); ts.current?.reset() } finally { setBusy(false) }
   }

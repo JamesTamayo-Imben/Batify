@@ -5,9 +5,9 @@
 // Turnstile note: the edit token (a 128+ bit secret) is the credential here, so
 // we do not CAPTCHA the owner's dashboard; we rate-limit per IP instead.
 import {
-  checkUpload, clean, clientIp, EXT, isValidDate, json, MEDIA_MAX, normalizeGcash,
-  isValidTheme, parseTimestamp, pendingWishMediaPath, preflight, publishPendingWishMedia,
-  rateLimitDurable, serviceClient, signPendingWishMedia, storagePathFromUrl,
+  checkUpload, clean, clientIp, EXT, hasBlockedLanguage, isValidDate, json, MEDIA_MAX, normalizeGcash,
+  isValidTheme, parseDeviceInfo, parseTimestamp, pendingWishMediaPath, preflight, publishPendingWishMedia,
+  rateLimitDurable, REQUEST_LIMITS, serviceClient, signPendingWishMedia, storagePathFromUrl,
 } from "../_shared/common.ts";
 
 Deno.serve(async (req) => {
@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
 
   try {
     const ip = clientIp(req);
-    if (!(await rateLimitDurable(`manage:${ip}`, 120, 60 * 1000))) {
+    if (!(await rateLimitDurable(`manage:${ip}`, REQUEST_LIMITS.ownerRequest.max, REQUEST_LIMITS.ownerRequest.windowMs))) {
       return json({ error: "Too many requests. Slow down." }, 429);
     }
 
@@ -35,12 +35,12 @@ Deno.serve(async (req) => {
     const token = typeof body.editToken === "string" ? body.editToken : "";
     if (!/^[a-z0-9]{32}$/.test(token)) {
       // Malformed tokens are guessing attempts: allow a few per IP, then block for the window.
-      if (!(await rateLimitDurable(`manage-bad:${ip}`, 20, 10 * 60 * 1000))) {
+      if (!(await rateLimitDurable(`manage-bad:${ip}`, REQUEST_LIMITS.ownerInvalidToken.max, REQUEST_LIMITS.ownerInvalidToken.windowMs))) {
         return json({ error: "Too many requests. Slow down." }, 429);
       }
       return json({ error: "Invalid edit link." }, 404);
     }
-    if (!(await rateLimitDurable(`manage-token:${ip}`, 60, 60 * 1000))) {
+    if (!(await rateLimitDurable(`manage-token:${ip}`, REQUEST_LIMITS.ownerValidToken.max, REQUEST_LIMITS.ownerValidToken.windowMs))) {
       return json({ error: "Too many requests. Slow down." }, 429);
     }
 
@@ -157,16 +157,19 @@ Deno.serve(async (req) => {
         if ("owner_name" in p) {
           const v = clean(p.owner_name, 60);
           if (!v) return json({ error: "Name can't be empty." }, 400);
+          if (hasBlockedLanguage(v)) return json({ error: "Please revise this text to remove language that is not suitable for Batify." }, 400);
           patch.owner_name = v;
         }
         if ("title" in p) {
           const v = clean(p.title, 120);
           if (!v) return json({ error: "Title can't be empty." }, 400);
+          if (hasBlockedLanguage(v)) return json({ error: "Please revise this text to remove language that is not suitable for Batify." }, 400);
           patch.title = v;
         }
         if ("letter" in p) {
           const v = clean(p.letter, 8000);
           if (!v) return json({ error: "Letter can't be empty." }, 400);
+          if (hasBlockedLanguage(v)) return json({ error: "Please revise this text to remove language that is not suitable for Batify." }, 400);
           patch.letter = v;
         }
         if ("birthday_date" in p) {
@@ -317,12 +320,17 @@ Deno.serve(async (req) => {
           return json({ error: "Enter an amount between ₱1 and ₱100,000." }, 400);
         }
         const status = body.status === "paid" ? "paid" : "pending";
+        const senderName = clean(body.senderName, 60);
+        if (hasBlockedLanguage(senderName)) {
+          return json({ error: "Please revise this text to remove language that is not suitable for Batify." }, 400);
+        }
         const { data, error } = await sb.from("contributions").insert({
           page_id: page.id,
-          sender_name: clean(body.senderName, 60) || null,
+          sender_name: senderName || null,
           amount,
           proof_url: clean(body.proofUrl, 500) || null,
           status,
+          device_info: parseDeviceInfo(req),
         }).select("*").single();
         if (error) { console.error(error); return json({ error: "Could not add contribution." }, 500); }
         return json({ contribution: { ...data, proof_signed_url: null } });

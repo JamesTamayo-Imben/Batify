@@ -1,5 +1,6 @@
 // Shared helpers for all Batify edge functions (Deno).
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { containsBlockedLanguage } from "./contentFilter.js";
 
 export const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -40,6 +41,65 @@ export function clientIp(req: Request): string {
     "unknown"
   );
 }
+
+export type DeviceInfo = {
+  device: "Mobile" | "Tablet" | "Desktop" | "Unknown";
+  browser: "Chrome" | "Firefox" | "Safari" | "Edge" | "Opera" | "Other" | "Unknown";
+  os: "Android" | "iOS" | "Windows" | "macOS" | "Linux" | "Other" | "Unknown";
+};
+
+/** Coarse request metadata only; never used as a unique device identifier. */
+export function parseDeviceInfo(req: Request): DeviceInfo {
+  const ua = req.headers.get("user-agent") || "";
+  if (!ua) return { device: "Unknown", browser: "Unknown", os: "Unknown" };
+
+  const device: DeviceInfo["device"] = /ipad|tablet|kindle|silk/i.test(ua) ||
+      (/android/i.test(ua) && !/mobile/i.test(ua))
+    ? "Tablet"
+    : /mobile|iphone|ipod|android/i.test(ua)
+      ? "Mobile"
+      : "Desktop";
+  const browser: DeviceInfo["browser"] = /edg(e|a|ios)?\//i.test(ua)
+    ? "Edge"
+    : /opr\/|opera/i.test(ua)
+      ? "Opera"
+      : /firefox|fxios/i.test(ua)
+        ? "Firefox"
+        : /chrome|crios|chromium/i.test(ua)
+          ? "Chrome"
+          : /safari/i.test(ua)
+            ? "Safari"
+            : "Other";
+  const os: DeviceInfo["os"] = /android/i.test(ua)
+    ? "Android"
+    : /iphone|ipad|ipod/i.test(ua)
+      ? "iOS"
+      : /windows/i.test(ua)
+        ? "Windows"
+        : /macintosh|mac os/i.test(ua)
+          ? "macOS"
+          : /linux/i.test(ua)
+            ? "Linux"
+            : "Other";
+  return { device, browser, os };
+}
+
+export function hasBlockedLanguage(...values: unknown[]): boolean {
+  return values.some((value) =>
+    typeof value === "string" && containsBlockedLanguage(value)
+  );
+}
+
+export const REQUEST_LIMITS = {
+  pageCreate: { max: 5, windowMs: 60 * 60 * 1000 },
+  wishSubmission: { max: 20, windowMs: 10 * 60 * 1000 },
+  ownerRequest: { max: 120, windowMs: 60 * 1000 },
+  ownerValidToken: { max: 60, windowMs: 60 * 1000 },
+  ownerInvalidToken: { max: 20, windowMs: 10 * 60 * 1000 },
+  openPerIp: { max: 60, windowMs: 60 * 60 * 1000 },
+  openPerPage: { max: 2, windowMs: 60 * 60 * 1000 },
+  adminRequest: { max: 60, windowMs: 60 * 1000 },
+} as const;
 
 // ---------------------------------------------------------------------------
 // Cloudflare Turnstile — server-side verification (the real gate)
